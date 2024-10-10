@@ -3,18 +3,26 @@
 This repository contains the implementation of the smuSQL database system. Below, you'll find an overview of the supported SQL-like commands, team members, evaluation metrics, and the core logic of our implementation.
 
 ## Table of Contents
-1. [Supported smuSQL Commands](#supported-smusql-commands)
+1. [Compilation and Execution](#compilation-and-execution)
+2. [Supported smuSQL Commands](#supported-smusql-commands)
    - [CREATE TABLE](#1-create-table)
    - [INSERT](#2-insert)
    - [SELECT *](#3-select-)
    - [UPDATE](#4-update)
    - [DELETE](#5-delete)
-2. [Team Members](#team-members)
-3. [Evaluation Metrics](#evaluation-metrics)
-4. [Implementation Logic](#implementation-logic)
+3. [Team Members](#team-members)
+4. [Evaluation Metrics](#evaluation-metrics)
+5. [Implementation Logic](#implementation-logic)
 
 ---
+## Compilation and Execution
 
+- Please ensure that Apache Maven and Java JDK 17 is installed on your machine. 
+- You can compile the code by navigating to the root directory of the project (i.e. the directory in which pom.xml resides) and
+running `mvn compile`.
+- Run the code using `mvn exec:java`.
+
+---
 ## Supported smuSQL Commands
 
 The following is an exhaustive list of commands supported by the smuSQL database system. For examples of correct behavior for each command, please refer to the sample implementation.
