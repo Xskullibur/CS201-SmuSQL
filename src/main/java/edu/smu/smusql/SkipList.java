@@ -166,6 +166,33 @@ public class SkipList<E extends Comparable<E>> {
         return result;
     }
 
+    public List<E> getValuesGreaterOrEquals(E value) {
+        List<E> result = new ArrayList<>();
+        Node<E> current = head;
+    
+        // Step 1: Descend to the lowest level
+        while (current.down != null) {
+            while (current.next != null && current.next.value.compareTo(value) < 0) {
+                current = current.next;
+            }
+            current = current.down;
+        }
+    
+        // Step 2: Collect values greater than or equal to the given value
+        while (current.next != null && current.next.value.compareTo(value) < 0) {
+            current = current.next; // Skip values less than the given value
+        }
+    
+        // Step 3: Collect all values greater than or equal to the given value
+        while (current.next != null) {
+            result.add(current.next.value);
+            current = current.next;
+        }
+    
+        return result;
+    }
+    
+
     public List<E> getValuesLesser(E value) {
         List<E> result = new ArrayList<>();
         Node<E> current = head;
@@ -183,6 +210,25 @@ public class SkipList<E extends Comparable<E>> {
     
         return result;
     }
+
+    public List<E> getValuesLesserOrEquals(E value) {
+        List<E> result = new ArrayList<>();
+        Node<E> current = head;
+    
+        // Step 1: Descend to the lowest level
+        while (current.down != null) {
+            current = current.down;
+        }
+    
+        // Step 2: Collect values less than or equal to the given value
+        while (current.next != null && current.next.value.compareTo(value) <= 0) {
+            result.add(current.next.value); // Add values less than or equal to the given value
+            current = current.next;
+        }
+    
+        return result;
+    }
+    
 
     public List<E> getValuesBetween(E start, E end) {
         List<E> result = new ArrayList<>();
@@ -204,6 +250,84 @@ public class SkipList<E extends Comparable<E>> {
         // Step 3: Collect all values between start and end (inclusive)
         while (current.next != null && current.next.value.compareTo(end) <= 0) {
             result.add(current.next.value); // Add values between start and end
+            current = current.next;
+        }
+    
+        return result;
+    }
+    
+    public List<E> getValuesBetweenOrEquals(E start, E end) {
+        List<E> result = new ArrayList<>();
+        Node<E> current = head;
+    
+        // Step 1: Descend to the lowest level
+        while (current.down != null) {
+            while (current.next != null && current.next.value.compareTo(start) < 0) {
+                current = current.next;
+            }
+            current = current.down;
+        }
+    
+        // Step 2: Move to the first value >= start
+        while (current.next != null && current.next.value.compareTo(start) < 0) {
+            current = current.next; // Skip values less than start
+        }
+    
+        // Step 3: Collect values between start and end (inclusive)
+        while (current.next != null && current.next.value.compareTo(end) <= 0) {
+            result.add(current.next.value);
+            current = current.next;
+        }
+    
+        return result;
+    }
+
+    public List<E> getValuesBetweenOrStartEquals(E start, E end) {
+        List<E> result = new ArrayList<>();
+        Node<E> current = head;
+    
+        // Step 1: Descend to the lowest level
+        while (current.down != null) {
+            while (current.next != null && current.next.value.compareTo(start) < 0) {
+                current = current.next;
+            }
+            current = current.down;
+        }
+    
+        // Step 2: Move to the first value >= start
+        while (current.next != null && current.next.value.compareTo(start) < 0) {
+            current = current.next; // Skip values less than start
+        }
+    
+        // Step 3: Collect values between start and end (inclusive of start, exclusive of end)
+        while (current.next != null && current.next.value.compareTo(end) < 0) {
+            result.add(current.next.value); // Exclude values equal to end
+            current = current.next;
+        }
+    
+        return result;
+    }
+
+    public List<E> getValuesBetweenOrEndEquals(E start, E end) {
+        List<E> result = new ArrayList<>();
+        Node<E> current = head;
+    
+        // Step 1: Descend to the lowest level
+        while (current.down != null) {
+            while (current.next != null && current.next.value.compareTo(start) <= 0) {
+                current = current.next;
+            }
+            current = current.down;
+        }
+    
+        // Step 2: Skip values less than or equal to start
+        while (current.next != null && current.next.value.compareTo(start) <= 0) {
+            current = current.next;
+        }
+    
+        // Step 3: Collect values between start and end (exclusive of start, inclusive of end)
+        while (current.next != null && current.next.value.compareTo(end) <= 0) {
+            result.add(current.next.value); // Include values equal to end
             current = current.next;
         }
     
