@@ -114,6 +114,104 @@ public class SkipList<E extends Comparable<E>> {
         return found;
     }
 
+    public List<E> getValuesEqual(E value) {
+        List<E> result = new ArrayList<>();
+        Node<E> current = head;
+    
+        // Step 1: Traverse down to the lowest level first
+        while (current.down != null) {
+            while (current.next != null && current.next.value.compareTo(value) < 0) {
+                current = current.next;
+            }
+            current = current.down; // Move down to the next level
+        }
+    
+        // Step 2: Now at the lowest level, find all nodes equal to the value
+        while (current.next != null && current.next.value.compareTo(value) < 0) {
+            current = current.next; // Move to the first value >= value
+        }
+    
+        // Step 3: Collect all values equal to the given value
+        while (current.next != null && current.next.value.compareTo(value) == 0) {
+            result.add(current.next.value); // Add values equal to the given value
+            current = current.next; // Move to the next node to handle duplicates
+        }
+    
+        return result;
+    }
+    
+    public List<E> getValuesGreater(E value) {
+        List<E> result = new ArrayList<>();
+        Node<E> current = head;
+    
+        // Step 1: Descend to the lowest level
+        while (current.down != null) {
+            while (current.next != null && current.next.value.compareTo(value) <= 0) {
+                current = current.next;
+            }
+            current = current.down; // Move down to the next level
+        }
+    
+        // Step 2: Move to the first value greater than the given value
+        while (current.next != null && current.next.value.compareTo(value) <= 0) {
+            current = current.next; // Skip values less than or equal to the given value
+        }
+    
+        // Step 3: Collect all values greater than the given value
+        while (current.next != null) {
+            result.add(current.next.value); // Add all values greater than the given value
+            current = current.next;
+        }
+    
+        return result;
+    }
+
+    public List<E> getValuesLesser(E value) {
+        List<E> result = new ArrayList<>();
+        Node<E> current = head;
+    
+        // Step 1: Descend to the lowest level
+        while (current.down != null) {
+            current = current.down;
+        }
+    
+        // Step 2: Collect all values less than the given value
+        while (current.next != null && current.next.value.compareTo(value) < 0) {
+            result.add(current.next.value); // Add values less than the given value
+            current = current.next;
+        }
+    
+        return result;
+    }
+
+    public List<E> getValuesBetween(E start, E end) {
+        List<E> result = new ArrayList<>();
+        Node<E> current = head;
+    
+        // Step 1: Descend to the lowest level
+        while (current.down != null) {
+            while (current.next != null && current.next.value.compareTo(start) < 0) {
+                current = current.next; // Move to the first value >= start
+            }
+            current = current.down; // Move down to the next level
+        }
+    
+        // Step 2: Move to the first value greater than or equal to 'start'
+        while (current.next != null && current.next.value.compareTo(start) < 0) {
+            current = current.next; // Skip values less than the start value
+        }
+    
+        // Step 3: Collect all values between start and end (inclusive)
+        while (current.next != null && current.next.value.compareTo(end) <= 0) {
+            result.add(current.next.value); // Add values between start and end
+            current = current.next;
+        }
+    
+        return result;
+    }
+    
+    
+    
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
