@@ -1,3 +1,5 @@
+package edu.smu.smusql;
+
 import java.util.*;
 
 public class Table {
@@ -6,14 +8,17 @@ public class Table {
     SkipList<Row> data; // Primary SkipList to store rows based on the primary key (id)
     Map<String, SkipList<Indexing>> secondaryIndices; // Secondary indices: column name -> SkipList of Indexing
 
+    private static final String STRING_INT_MAX = Integer.toString(Integer.MAX_VALUE);
+    private static final String STRING_INT_MIN = Integer.toString(Integer.MIN_VALUE);
+
     public Table(String name, List<String> columns) {
         this.name = name;
         this.columns = columns;
         this.data = new SkipList<>();
         this.secondaryIndices = new HashMap<>();
 
-        //Automatically creates secondary index for all columns
-        for(String col : columns){
+        // Automatically creates secondary index for all columns
+        for (String col : columns) {
             createSecondaryIndex(col);
         }
     }
@@ -35,36 +40,36 @@ public class Table {
 
         // Insert the new row into the primary skip list (indexed by ID)
         Row row = new Row(id, rowData);
-        data.add(row); // Assuming SkipList has an add() method
+        data.insert(row); // Assuming SkipList has an insert() method
 
         // Update all secondary indices (only for columns that have secondary indices)
         for (String column : columns) {
             String columnValue = rowData.get(column);
             if (columnValue != null) {
                 Indexing indexEntry = new Indexing(columnValue, id);
-                secondaryIndices.get(column).add(indexEntry); // Add the index entry
+                secondaryIndices.get(column).insert(indexEntry); // Add the index entry
             }
         }
     }
 
     // Update an existing row based on its ID
     public void updateRow(String id, Map<String, String> newData) {
-        Row row = data.search(id); // Find the row by its ID (primary key)
+        Row row = data.search(new Row(id, null)); // Find the row by its ID (primary key)
 
         if (row != null) {
             // Remove old values from secondary indices
             for (String column : secondaryIndices.keySet()) {
-                String oldColumnValue = row.data.get(column);
+                String oldColumnValue = row.getData().get(column);
                 if (oldColumnValue != null) {
                     Indexing oldIndexEntry = new Indexing(oldColumnValue, id);
-                    secondaryIndices.get(column).remove(oldIndexEntry); // Remove old index entry
+                    secondaryIndices.get(column).delete(oldIndexEntry); // Remove old index entry
                 }
             }
 
             // Update the row's data in the primary skip list
             for (Map.Entry<String, String> entry : newData.entrySet()) {
                 if (columns.contains(entry.getKey())) {
-                    row.data.put(entry.getKey(), entry.getValue());
+                    row.getData().put(entry.getKey(), entry.getValue());
                 }
             }
 
@@ -73,7 +78,7 @@ public class Table {
                 String newColumnValue = newData.get(column);
                 if (newColumnValue != null) {
                     Indexing newIndexEntry = new Indexing(newColumnValue, id);
-                    secondaryIndices.get(column).add(newIndexEntry); // Add new index entry
+                    secondaryIndices.get(column).insert(newIndexEntry); // Add new index entry
                 }
             }
         } else {
@@ -83,17 +88,17 @@ public class Table {
 
     // Delete a row based on its ID
     public void deleteRow(String id) {
-        Row row = data.search(id); // Find the row by its ID
+        Row row = data.search(new Row(id, null)); // Find the row by its ID
         if (row != null) {
             // Remove the row from the primary skip list
-            data.remove(row);
+            data.delete(row);
 
             // Remove the row from all secondary indices
             for (String column : secondaryIndices.keySet()) {
-                String columnValue = row.data.get(column);
+                String columnValue = row.getData().get(column);
                 if (columnValue != null) {
                     Indexing indexEntry = new Indexing(columnValue, id);
-                    secondaryIndices.get(column).remove(indexEntry); // Remove the index entry
+                    secondaryIndices.get(column).delete(indexEntry); // Remove the index entry
                 }
             }
         } else {
@@ -103,26 +108,28 @@ public class Table {
 
     // Retrieve a row based on its ID
     public Row getRow(String id) {
-        return data.search(id); // Assuming SkipList has a search() method
+        return data.search(new Row(id, null)); // Assuming SkipList has a search() method
     }
 
-    // Retrieve all rows that match a certain value in an indexed column
-    public List<Row> selectRowsByIndex(String column, String value) {
-        if (!secondaryIndices.containsKey(column)) {
-            throw new IllegalArgumentException("No index found for column " + column);
-        }
+    // Ask me if you don't understand this part
+    public List<String> returnKeysByRequirementsOnIndex(String column, String operator, String value) {
+        List<String> result = new ArrayList<>();
+        if (operator.equals(">")) {
+            result.addAll(secondaryIndices.get(column).getValuesGreater(new Indexing(value, STRING_INT_MAX)).stream()
+                    .map(x -> x.getPrimaryKey()).toList());
+        } else if (operator.equals(">=")) {
+            result.addAll(secondaryIndices.get(column).getValuesGreaterOrEquals(new Indexing(value, STRING_INT_MIN)).stream()
+                    .map(x -> x.getPrimaryKey()).toList());
 
-        SkipList<Indexing> index = secondaryIndices.get(column);
-        List<Row> result = new ArrayList<>();
-
-        // Find all indexing entries for the given column value
-        for (Indexing indexing : index) {
-            if (indexing.getColumnValue().equals(value)) {
-                Row row = data.search(indexing.getPrimaryKey());
-                if (row != null) {
-                    result.add(row);
-                }
-            }
+        } else if (operator.equals("<")) {
+            result.addAll(secondaryIndices.get(column).getValuesLesser(new Indexing(value, STRING_INT_MIN)).stream()
+                    .map(x -> x.getPrimaryKey()).toList());
+        } else if (operator.equals("<=")) {
+            result.addAll(secondaryIndices.get(column).getValuesLesserOrEquals(new Indexing(value, STRING_INT_MAX)).stream()
+                    .map(x -> x.getPrimaryKey()).toList());
+        } else if (operator.equals("=")) {
+            result.addAll(secondaryIndices.get(column).getValuesEqual(new Indexing(value, STRING_INT_MIN)).stream()
+                    .map(x -> x.getPrimaryKey()).toList());
         }
 
         return result;

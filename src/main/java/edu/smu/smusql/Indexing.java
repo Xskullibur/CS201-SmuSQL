@@ -2,7 +2,7 @@ package edu.smu.smusql;
 
 public class Indexing implements Comparable<Indexing> {
     private String columnValue; // The value of the column being indexed
-    private String primaryKey;  // The primary key (ID) of the original row
+    private String primaryKey; // The primary key (ID) of the original row
 
     // Constructor to initialize the Indexing object
     public Indexing(String columnValue, String primaryKey) {
@@ -30,30 +30,48 @@ public class Indexing implements Comparable<Indexing> {
         this.primaryKey = primaryKey;
     }
 
-    // Overriding the compareTo method to compare Indexing objects based on columnValue, and then primaryKey
+    // Overriding the compareTo method to compare Indexing objects based on
+    // columnValue, and then primaryKey
     @Override
     public int compareTo(Indexing other) {
-        // First compare by column value
-        int comparisonResult = this.columnValue.compareTo(other.columnValue);
-        
+        // Try to compare columnValue as numbers
+        int comparisonResult = compareAsNumbers(this.columnValue, other.columnValue);
+
         // If the column values are the same, compare by primary key (for tie-breaking)
         if (comparisonResult == 0) {
             return this.primaryKey.compareTo(other.primaryKey);
         }
-        
+
         return comparisonResult;
     }
 
-    // Overriding the equals method to ensure equality checks based on both columnValue and primaryKey
+    // Helper method to compare two values as numbers, falling back to string
+    // comparison, used for eevrything but getValuesEqual.
+    private int compareAsNumbers(String value1, String value2) {
+        try {
+            // Try to parse both values as integers
+            Double num1 = Double.parseDouble(value1);
+            Double num2 = Double.parseDouble(value2);
+
+            // Compare as numbers if both values are numeric
+            return num1.compareTo(num2);
+        } catch (NumberFormatException e) {
+            // If either value is not numeric, compare as strings
+            return value1.compareTo(value2);
+        }
+    }
+
+    // Overriding the equals method to ensure equality checks based on just columnValue, is less strict to allow duplicates
     @Override
     public boolean equals(Object obj) {
-        if (this == obj) return true;
-        if (obj == null || getClass() != obj.getClass()) return false;
+        if (this == obj)
+            return true;
+        if (obj == null || getClass() != obj.getClass())
+            return false;
 
         Indexing indexing = (Indexing) obj;
 
-        if (!columnValue.equals(indexing.columnValue)) return false;
-        return primaryKey.equals(indexing.primaryKey);
+        return columnValue.equals(indexing.columnValue);
     }
 
     // Overriding toString to print the Indexing object in a readable format

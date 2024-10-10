@@ -2,7 +2,7 @@ package edu.smu.smusql;
 
 import java.util.*;
 
-public class SkipList<E extends Comparable<E>> {
+public class SkipList<E extends Comparable<E>> implements Iterable<E> {
 
     private static class Node<E> {
         E value;
@@ -78,18 +78,18 @@ public class SkipList<E extends Comparable<E>> {
         return newUpdate;
     }
 
-    public boolean search(E value) {
+    public E search(E value) {
         Node<E> current = head;
         while (current != null) {
             while (current.next != null && current.next.value.compareTo(value) < 0) {
                 current = current.next;
             }
             if (current.next != null && current.next.value.compareTo(value) == 0) {
-                return true; // Value found
+                return current.next.value; // Value found
             }
             current = current.down; // Move down to the next level
         }
-        return false; // Value not found
+        return null; // Value not found
     }
 
     public boolean delete(E value) {
@@ -114,6 +114,38 @@ public class SkipList<E extends Comparable<E>> {
         return found;
     }
 
+    @Override
+    public Iterator<E> iterator() {
+        // Return a new Iterator object that traverses the skip list from the first element
+        return new Iterator<E>() {
+            // Start from the lowest level
+            private Node<E> current = getBottomLeft();
+
+            // Helper method to get the bottom-left node of the skip list
+            private Node<E> getBottomLeft() {
+                Node<E> node = head;
+                while (node.down != null) {
+                    node = node.down; // Move down until you reach the lowest level
+                }
+                return node;
+            }
+
+            @Override
+            public boolean hasNext() {
+                return current != null && current.next != null;
+            }
+
+            @Override
+            public E next() {
+                if (!hasNext()) {
+                    throw new NoSuchElementException();
+                }
+                current = current.next;
+                return current.value;
+            }
+        };
+    }
+
     public List<E> getValuesEqual(E value) {
         List<E> result = new ArrayList<>();
         Node<E> current = head;
@@ -132,7 +164,7 @@ public class SkipList<E extends Comparable<E>> {
         }
     
         // Step 3: Collect all values equal to the given value
-        while (current.next != null && current.next.value.compareTo(value) == 0) {
+        while (current.next != null && current.next.value.equals(value)) {
             result.add(current.next.value); // Add values equal to the given value
             current = current.next; // Move to the next node to handle duplicates
         }
