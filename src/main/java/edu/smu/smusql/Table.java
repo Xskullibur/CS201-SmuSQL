@@ -1,24 +1,27 @@
-package edu.smu.smusql;
-
 import java.util.*;
 
 public class Table {
     String name; // Table name
     List<String> columns; // List of column names
-    SkipList<Row> data; // SkipList to store rows based on the primary key
-    Map<String, SkipList<String, Set<Row>>> secondaryIndices; // Map of secondary indices for columns
+    SkipList<Row> data; // Primary SkipList to store rows based on the primary key (id)
+    Map<String, SkipList<Indexing>> secondaryIndices; // Secondary indices: column name -> SkipList of Indexing
 
     public Table(String name, List<String> columns) {
         this.name = name;
         this.columns = columns;
         this.data = new SkipList<>();
         this.secondaryIndices = new HashMap<>();
+
+        //Automatically creates secondary index for all columns
+        for(String col : columns){
+            createSecondaryIndex(col);
+        }
     }
 
     // Create a secondary index for a specific column
     public void createSecondaryIndex(String column) {
         if (!columns.contains(column)) {
-            throw new IllegalArgumentException("Column " + column + " does not exist in table");
+            throw new IllegalArgumentException("Column " + column + " does not exist in the table");
         }
         secondaryIndices.put(column, new SkipList<>()); // Create a new SkipList for the column
     }
@@ -34,8 +37,14 @@ public class Table {
         Row row = new Row(id, rowData);
         data.add(row); // Assuming SkipList has an add() method
 
-        // Update all secondary indices
-        updateSecondaryIndices(row, rowData, true);
+        // Update all secondary indices (only for columns that have secondary indices)
+        for (String column : columns) {
+            String columnValue = rowData.get(column);
+            if (columnValue != null) {
+                Indexing indexEntry = new Indexing(columnValue, id);
+                secondaryIndices.get(column).add(indexEntry); // Add the index entry
+            }
+        }
     }
 
     // Update an existing row based on its ID
@@ -43,15 +52,30 @@ public class Table {
         Row row = data.search(id); // Find the row by its ID (primary key)
 
         if (row != null) {
-            // Update the row's data
+            // Remove old values from secondary indices
+            for (String column : secondaryIndices.keySet()) {
+                String oldColumnValue = row.data.get(column);
+                if (oldColumnValue != null) {
+                    Indexing oldIndexEntry = new Indexing(oldColumnValue, id);
+                    secondaryIndices.get(column).remove(oldIndexEntry); // Remove old index entry
+                }
+            }
+
+            // Update the row's data in the primary skip list
             for (Map.Entry<String, String> entry : newData.entrySet()) {
                 if (columns.contains(entry.getKey())) {
                     row.data.put(entry.getKey(), entry.getValue());
                 }
             }
 
-            // Update the secondary indices with the new data
-            updateSecondaryIndices(row, newData, false);
+            // Insert new values into secondary indices
+            for (String column : columns) {
+                String newColumnValue = newData.get(column);
+                if (newColumnValue != null) {
+                    Indexing newIndexEntry = new Indexing(newColumnValue, id);
+                    secondaryIndices.get(column).add(newIndexEntry); // Add new index entry
+                }
+            }
         } else {
             throw new NoSuchElementException("Row with ID " + id + " not found");
         }
@@ -65,7 +89,13 @@ public class Table {
             data.remove(row);
 
             // Remove the row from all secondary indices
-            updateSecondaryIndices(row, row.data, false);
+            for (String column : secondaryIndices.keySet()) {
+                String columnValue = row.data.get(column);
+                if (columnValue != null) {
+                    Indexing indexEntry = new Indexing(columnValue, id);
+                    secondaryIndices.get(column).remove(indexEntry); // Remove the index entry
+                }
+            }
         } else {
             throw new NoSuchElementException("Row with ID " + id + " not found");
         }
@@ -82,32 +112,20 @@ public class Table {
             throw new IllegalArgumentException("No index found for column " + column);
         }
 
-        SkipList<String, Set<Row>> index = secondaryIndices.get(column);
-        Set<Row> rows = index.search(value); // Search the secondary index for the given value
+        SkipList<Indexing> index = secondaryIndices.get(column);
+        List<Row> result = new ArrayList<>();
 
-        return rows != null ? new ArrayList<>(rows) : Collections.emptyList();
-    }
-
-    // Update the secondary indices when a row is inserted, updated, or deleted
-    private void updateSecondaryIndices(Row row, Map<String, String> rowData, boolean isInsert) {
-        for (String column : secondaryIndices.keySet()) {
-            String columnValue = rowData.get(column);
-            SkipList<String, Set<Row>> index = secondaryIndices.get(column);
-
-            if (isInsert) {
-                // Insert into the secondary index
-                index.computeIfAbsent(columnValue, k -> new HashSet<>()).add(row);
-            } else {
-                // Remove from the secondary index if it's an update or delete
-                Set<Row> rows = index.search(columnValue);
-                if (rows != null) {
-                    rows.remove(row);
-                    if (rows.isEmpty()) {
-                        index.remove(columnValue); // Clean up empty index entries
-                    }
+        // Find all indexing entries for the given column value
+        for (Indexing indexing : index) {
+            if (indexing.getColumnValue().equals(value)) {
+                Row row = data.search(indexing.getPrimaryKey());
+                if (row != null) {
+                    result.add(row);
                 }
             }
         }
+
+        return result;
     }
 
     // Validate that the inserted row matches the table schema
