@@ -119,6 +119,31 @@ public class Table {
         return data.search(new Row(id, null)); // Assuming SkipList has a search() method
     }
 
+    //in case anybody wants to do hilarous stuff like return > id
+    public List<String> returnKeysByRequirementsOnId(String operator, String id) {
+
+        List<String> result = new ArrayList<>();
+        if (operator.equals(">")) {
+            result.addAll(data.getValuesGreater(new Row(id, null)).stream()
+                    .map(x -> x.getId()).toList());
+        } else if (operator.equals(">=")) {
+            result.addAll(data.getValuesGreaterOrEquals(new Row(id, null)).stream()
+            .map(x -> x.getId()).toList());
+
+        } else if (operator.equals("<")) {
+            result.addAll(data.getValuesLesser(new Row(id, null)).stream()
+            .map(x -> x.getId()).toList());
+        } else if (operator.equals("<=")) {
+            result.addAll(data.getValuesLesserOrEquals(new Row(id, null)).stream()
+            .map(x -> x.getId()).toList());
+        } else if (operator.equals("=")) {
+            result.addAll(data.getValuesEqual(new Row(id, null)).stream()
+                    .map(x -> x.getId()).toList());
+        }
+
+        return result;
+    }
+
     // Ask me if you don't understand this part
     public List<String> returnKeysByRequirementsOnIndex(String column, String operator, String value) {
         List<String> result = new ArrayList<>();
@@ -126,15 +151,17 @@ public class Table {
             result.addAll(secondaryIndices.get(column).getValuesGreater(new Indexing(value, STRING_INT_MAX)).stream()
                     .map(x -> x.getPrimaryKey()).toList());
         } else if (operator.equals(">=")) {
-            result.addAll(secondaryIndices.get(column).getValuesGreaterOrEquals(new Indexing(value, STRING_INT_MIN)).stream()
-                    .map(x -> x.getPrimaryKey()).toList());
+            result.addAll(
+                    secondaryIndices.get(column).getValuesGreaterOrEquals(new Indexing(value, STRING_INT_MIN)).stream()
+                            .map(x -> x.getPrimaryKey()).toList());
 
         } else if (operator.equals("<")) {
             result.addAll(secondaryIndices.get(column).getValuesLesser(new Indexing(value, STRING_INT_MIN)).stream()
                     .map(x -> x.getPrimaryKey()).toList());
         } else if (operator.equals("<=")) {
-            result.addAll(secondaryIndices.get(column).getValuesLesserOrEquals(new Indexing(value, STRING_INT_MAX)).stream()
-                    .map(x -> x.getPrimaryKey()).toList());
+            result.addAll(
+                    secondaryIndices.get(column).getValuesLesserOrEquals(new Indexing(value, STRING_INT_MAX)).stream()
+                            .map(x -> x.getPrimaryKey()).toList());
         } else if (operator.equals("=")) {
             result.addAll(secondaryIndices.get(column).getValuesEqual(new Indexing(value, STRING_INT_MIN)).stream()
                     .map(x -> x.getPrimaryKey()).toList());
