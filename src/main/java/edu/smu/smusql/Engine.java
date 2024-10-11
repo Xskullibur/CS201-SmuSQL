@@ -73,8 +73,38 @@ public class Engine {
                 }
             }
         }
-        // TODO
+        Table t = data.get(tableName);
         int rowCount = 0;
+        if (whereClauseConditions.size() == 1) {
+            String[] requirements = whereClauseConditions.get(0);
+            List<String> keysToDelete = t.returnKeysByRequirementsOnIndex(requirements[1], requirements[2],
+                    requirements[3]);
+            for (String id : keysToDelete) {
+                rowCount++;
+                t.deleteRow(id);
+            }
+        } else {
+            String logic = whereClauseConditions.get(1)[0];
+            String[] reqs1 = whereClauseConditions.get(0);
+            String[] reqs2 = whereClauseConditions.get(2);
+
+            List<String> keys1 = t.returnKeysByRequirementsOnIndex(reqs1[1], reqs1[2], reqs1[3]);
+            List<String> keys2 = t.returnKeysByRequirementsOnIndex(reqs2[1], reqs2[2], reqs2[3]);
+
+            Set<String> set1 = new HashSet<>(keys1);
+            Set<String> set2 = new HashSet<>(keys2);
+
+            if (logic.equals("OR")) {
+                set1.addAll(set2);
+            } else {
+                set1.retainAll(set2);
+            }
+
+            for(String id : set1){
+                rowCount++;
+                t.deleteRow(id);
+            }
+        }
         return rowCount + " rows deleted successfully";
     }
 
