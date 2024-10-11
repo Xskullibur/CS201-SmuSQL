@@ -57,13 +57,15 @@ public class Engine {
             }
         }
         //TODO
-        return "not implemented";
+        int rowCount = 0;
+        return rowCount + " rows deleted successfully";
     }
 
     public String select(String[] tokens) {
         
+        int rowCount = 0;
         //TODO
-        return "not implemented";
+        return "Returned " + rowCount + " rows";
     }
     public String update(String[] tokens) {
 
@@ -92,11 +94,16 @@ public class Engine {
             }
         }
         //TODO
-        return "not implemented";
-    }
+        int rowCount = 0;
+        return rowCount + " rows updated successfully";    }
     public String create(String[] tokens) {
-        //TODO
-        return "not implemented";
+        // exmaple for reference CREATE TABLE student (id, name, age, gpa, deans_list)
+
+        String[] colVals = queryBetweenParentheses(tokens, 3).split(" ");
+        String name = tokens[2];
+        Table created = new Table(name, Arrays.asList(colVals));
+        data.put(name, created);
+        return "Table " + name + " created successfully";
     }
 
 
