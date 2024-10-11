@@ -18,8 +18,8 @@ public class Table {
         this.secondaryIndices = new HashMap<>();
 
         // Automatically creates secondary index for all columns
-        for (String col : columns) {
-            createSecondaryIndex(col);
+        for(int i= 1; i < columns.size(); i++){
+            createSecondaryIndex(columns.get(i));
         }
     }
 
@@ -178,7 +178,12 @@ public class Table {
 
     // Validate that the inserted row matches the table schema
     private boolean validateRow(Map<String, String> rowData) {
-        return rowData.keySet().containsAll(columns); // Ensure all columns are present
+        for(int i = 1; i < columns.size(); i++){
+            if(!rowData.keySet().contains(columns.get(i))){
+                return false;
+            }
+        }
+        return true; // Ensure all columns are present
     }
 
     // Print all rows for debugging

@@ -36,15 +36,18 @@ public class Engine {
         List<String> cols = t.getColumns();
         Map<String, String> colsVals = new HashMap<>();
         // id is handled separately
-        if (cols.size() != values.size() - 1) {
+        System.out.println("cols size" + cols.size());
+        System.out.println("vals size "+ values.size()+  ":"+ values.toString());
+        if (cols.size() != values.size()) {
             return "invalid insert statement";
         }
+        
 
-        for (int i = 0; i < cols.size(); i++) {
-            colsVals.put(cols.get(i).toLowerCase(), values.get(i + 1));  // Handle column names case-insensitively
+        for (int i = 1; i < cols.size(); i++) {
+            colsVals.put(cols.get(i).toLowerCase(), values.get(i ));  // Handle column names case-insensitively
         }
 
-        t.insertRow(tokens[3], colsVals);
+        t.insertRow(values.get(0), colsVals);
 
         return "inserted into " + tableName + " successfully";
     }
@@ -292,7 +295,8 @@ public class Engine {
     public String create(String[] tokens) {
         // example for reference CREATE TABLE student (id, name, age, gpa, deans_list)
 
-        String[] colVals = queryBetweenParentheses(tokens, 3).split(" ");
+        String[] colVals = queryBetweenParentheses(tokens, 3).split(",");
+        System.out.println(Arrays.toString(colVals));
         String name = tokens[2].toLowerCase();  // Ensure table names are case-insensitive
         Table created = new Table(name, Arrays.asList(colVals));
         data.put(name, created);
