@@ -123,13 +123,95 @@ public class Engine {
     }
 
     public String select(String[] tokens) {
-        // `SELECT * FROM table_name`
-        // `SELECT * FROM table_name WHERE condition1 AND/OR condition2`
+        // SELECT * FROM table_name
+        // SELECT * FROM table_name WHERE condition1 AND/OR condition2
+    
+        String tableName = tokens[3]; // Get the table name
+        Table t = data.get(tableName); // Get the table from the map
+    
+        List<Row> resultRows = new ArrayList<>(); // To store result rows
+    
+        // Check if there is a WHERE clause
+        if (tokens.length > 4 && tokens[4].equalsIgnoreCase("WHERE")) {
+            List<String[]> whereClauseConditions = new ArrayList<>();
+    
+            // Parse WHERE clause conditions
+            for (int i = 5; i < tokens.length; i++) {
+                if (tokens[i].equalsIgnoreCase("AND") || tokens[i].equalsIgnoreCase("OR")) {
+                    whereClauseConditions.add(new String[] { tokens[i].toUpperCase(), null, null, null });
+                } else if (isOperator(tokens[i])) {
+                    // Add condition with operator (column, operator, value)
+                    String column = tokens[i - 1];
+                    String operator = tokens[i];
+                    String value = tokens[i + 1];
+                    whereClauseConditions.add(new String[] { null, column, operator, value });
+                    i += 1; // Skip the value since it has been processed
+                }
+            }
+    
+            // Handle single condition or complex conditions with AND/OR logic
+            if (whereClauseConditions.size() == 1) {
+                String[] requirements = whereClauseConditions.get(0);
+                List<String> keysToSelect = new ArrayList<>();
 
-        int rowCount = 0;
-        // TODO
-        return "Returned " + rowCount + " rows";
+                if (requirements[1].equalsIgnoreCase("ID")) {
+                    keysToSelect.addAll(t.returnKeysByRequirementsOnId(requirements[2], requirements[3]));
+                } else {
+                    keysToSelect.addAll(t.returnKeysByRequirementsOnIndex(requirements[1], requirements[2], requirements[3]));
+                }
+    
+                // Retrieve rows
+                for (String id : keysToSelect) {
+                    resultRows.add(t.getRow(id));
+                }
+            } else {
+                String logic = whereClauseConditions.get(1)[0]; // AND/OR
+                String[] reqs1 = whereClauseConditions.get(0);
+                String[] reqs2 = whereClauseConditions.get(2);
+    
+                // Get rows based on both conditions
+                List<String> keys1 = new ArrayList<>();
+                if (reqs1[1].equalsIgnoreCase("ID")) {
+                    keys1.addAll(t.returnKeysByRequirementsOnId(reqs1[2], reqs1[3]));
+                } else {
+                    keys1.addAll(t.returnKeysByRequirementsOnIndex(reqs1[1], reqs1[2], reqs1[3]));
+                }
+    
+                List<String> keys2 = new ArrayList<>();
+                if (reqs2[1].equalsIgnoreCase("ID")) {
+                    keys2.addAll(t.returnKeysByRequirementsOnId(reqs2[2], reqs2[3]));
+                } else {
+                    keys2.addAll(t.returnKeysByRequirementsOnIndex(reqs2[1], reqs2[2], reqs2[3]));
+                }
+    
+                // Perform AND or OR on the keys
+                Set<String> set1 = new HashSet<>(keys1);
+                Set<String> set2 = new HashSet<>(keys2);
+    
+                if (logic.equalsIgnoreCase("OR")) {
+                    set1.addAll(set2); // Union
+                } else {
+                    set1.retainAll(set2); // Intersection
+                }
+    
+                // Retrieve rows
+                for (String id : set1) {
+                    resultRows.add(t.getRow(id));
+                }
+            }
+        } else {
+            // No WHERE clause, select all rows
+            for (Row row : t.getData()) {
+                resultRows.add(row);
+            }
+        }
+    
+        // Format the results for display
+        return formatSelectResults(resultRows, t.getColumns());
     }
+    
+    
+    
 
     public String update(String[] tokens) {
         // `UPDATE table_name SET update WHERE condition1 AND/OR condition2`
@@ -234,6 +316,25 @@ public class Engine {
     // Helper method to determine if a string is an operator
     private boolean isOperator(String token) {
         return token.equals("=") || token.equals(">") || token.equals("<") || token.equals(">=") || token.equals("<=");
+    }
+
+    // Helper method to format the results of a SELECT query
+    private String formatSelectResults(List<Row> rows, List<String> columns) {
+        StringBuilder sb = new StringBuilder();
+    
+        // Header (column names)
+        sb.append(String.join("\t", columns)).append("\n");
+    
+        // Rows data
+        for (Row row : rows) {
+            Map<String, String> rowData = row.getData();
+            for (String column : columns) {
+                sb.append(rowData.get(column)).append("\t");
+            }
+            sb.append("\n");
+        }
+    
+        return sb.toString().trim(); // Return the formatted string
     }
 
 }

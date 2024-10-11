@@ -31,6 +31,10 @@ public class Table {
         return columns;
     }
 
+    public SkipList<Row> getData() {
+        return data;
+    }
+
     // Create a secondary index for a specific column
     public void createSecondaryIndex(String column) {
         if (!columns.contains(column)) {
@@ -118,6 +122,8 @@ public class Table {
     public Row getRow(String id) {
         return data.search(new Row(id, null)); // Assuming SkipList has a search() method
     }
+
+
 
     //in case anybody wants to do hilarous stuff like return > id
     public List<String> returnKeysByRequirementsOnId(String operator, String id) {
