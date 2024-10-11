@@ -3,10 +3,10 @@ package edu.smu.smusql;
 import java.util.*;
 
 public class Table {
-    String name; // Table name
-    List<String> columns; // List of column names
-    SkipList<Row> data; // Primary SkipList to store rows based on the primary key (id)
-    Map<String, SkipList<Indexing>> secondaryIndices; // Secondary indices: column name -> SkipList of Indexing
+    private String name; // Table name
+    private List<String> columns; // List of column names
+    private SkipList<Row> data; // Primary SkipList to store rows based on the primary key (id)
+    private Map<String, SkipList<Indexing>> secondaryIndices; // Secondary indices: column name -> SkipList of Indexing
 
     private static final String STRING_INT_MAX = Integer.toString(Integer.MAX_VALUE);
     private static final String STRING_INT_MIN = Integer.toString(Integer.MIN_VALUE);
@@ -21,6 +21,14 @@ public class Table {
         for (String col : columns) {
             createSecondaryIndex(col);
         }
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public List<String> getColumns() {
+        return columns;
     }
 
     // Create a secondary index for a specific column

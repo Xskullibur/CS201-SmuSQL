@@ -27,15 +27,32 @@ public class Engine {
     }
 
     public String insert(String[] tokens) {
-        //TODO
+        // `INSERT INTO table_name VALUES (value1, value2, ...)`
 
         String tableName = tokens[2]; // The name of the table to be inserted into.
         String valueList = queryBetweenParentheses(tokens, 4); // Get values list between parentheses
         List<String> values = Arrays.asList(valueList.split(",")); // These are the values in the row to be inserted.
+        Table t = data.get(tableName);
+        List<String> cols = t.getColumns();
+        Map<String, String> colsVals = new HashMap<>();
+        // id is handled seperately
+        if (cols.size() != values.size() - 1) {
+            return "invalid insert statement";
+        }
 
-        return "not implemented";
+        for (int i = 0; i < cols.size(); i++) {
+            colsVals.put(cols.get(i), values.get(i + 1));
+        }
+
+        t.insertRow(tokens[3], colsVals);
+
+        return "inserted into " + tableName + " successfully";
     }
+
     public String delete(String[] tokens) {
+
+        // `DELETE FROM table_name WHERE condition1 AND/OR condition2`
+
         String tableName = tokens[2]; // The name of the table to be deleted from.
 
         List<String[]> whereClauseConditions = new ArrayList<>(); // Array for storing conditions from the where clause.
@@ -45,29 +62,34 @@ public class Engine {
             for (int i = 4; i < tokens.length; i++) {
                 if (tokens[i].toUpperCase().equals("AND") || tokens[i].toUpperCase().equals("OR")) {
                     // Add AND/OR conditions
-                    whereClauseConditions.add(new String[] {tokens[i].toUpperCase(), null, null, null});
+                    whereClauseConditions.add(new String[] { tokens[i].toUpperCase(), null, null, null });
                 } else if (isOperator(tokens[i])) {
                     // Add condition with operator (column, operator, value)
                     String column = tokens[i - 1];
                     String operator = tokens[i];
                     String value = tokens[i + 1];
-                    whereClauseConditions.add(new String[] {null, column, operator, value});
+                    whereClauseConditions.add(new String[] { null, column, operator, value });
                     i += 1; // Skip the value since it has been processed
                 }
             }
         }
-        //TODO
+        // TODO
         int rowCount = 0;
         return rowCount + " rows deleted successfully";
     }
 
     public String select(String[] tokens) {
-        
+        // `SELECT * FROM table_name`
+        // `SELECT * FROM table_name WHERE condition1 AND/OR condition2`
+
         int rowCount = 0;
-        //TODO
+        // TODO
         return "Returned " + rowCount + " rows";
     }
+
     public String update(String[] tokens) {
+        // `UPDATE table_name SET update WHERE condition1 AND/OR condition2`
+        // `UPDATE student SET age = 25 WHERE id = 1`
 
         String tableName = tokens[1]; // name of the table to be updated
 
@@ -82,20 +104,22 @@ public class Engine {
             for (int i = 5; i < tokens.length; i++) {
                 if (tokens[i].equalsIgnoreCase("AND") || tokens[i].equalsIgnoreCase("OR")) {
                     // Add AND/OR conditions
-                    whereClauseConditions.add(new String[] {tokens[i].toUpperCase(), null, null, null});
+                    whereClauseConditions.add(new String[] { tokens[i].toUpperCase(), null, null, null });
                 } else if (isOperator(tokens[i])) {
                     // Add condition with operator (column, operator, value)
                     String column = tokens[i - 1];
                     String operator = tokens[i];
                     String value = tokens[i + 1];
-                    whereClauseConditions.add(new String[] {null, column, operator, value});
+                    whereClauseConditions.add(new String[] { null, column, operator, value });
                     i += 1; // Skip the value since it has been processed
                 }
             }
         }
-        //TODO
+        // TODO
         int rowCount = 0;
-        return rowCount + " rows updated successfully";    }
+        return rowCount + " rows updated successfully";
+    }
+
     public String create(String[] tokens) {
         // exmaple for reference CREATE TABLE student (id, name, age, gpa, deans_list)
 
@@ -106,8 +130,7 @@ public class Engine {
         return "Table " + name + " created successfully";
     }
 
-
-    //Helper methods
+    // Helper methods
     private String queryBetweenParentheses(String[] tokens, int startIndex) {
         StringBuilder result = new StringBuilder();
         for (int i = startIndex; i < tokens.length; i++) {
