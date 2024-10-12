@@ -168,8 +168,12 @@ public class Engine {
 
                 // Retrieve rows
                 for (String id : keysToSelect) {
-                    resultRows.add(t.getRow(id));
+                    Row row = t.getRow(id);
+                    if (row != null) {
+                        resultRows.add(row);
+                    }
                 }
+
             } else {
                 String logic = whereClauseConditions.get(1)[0]; // AND/OR
                 String[] reqs1 = whereClauseConditions.get(0);
@@ -207,12 +211,16 @@ public class Engine {
             }
         } else {
             // No WHERE clause, select all rows
-            for (Row row : t.getData()) {
-                resultRows.add(row);
+            for (Row r : t.getData()) {
+                if (r != null) {
+                    resultRows.add(r);
+                }
             }
         }
 
         // Format the results for display
+        
+
         return formatSelectResults(resultRows, t.getColumns());
     }
 
@@ -258,11 +266,9 @@ public class Engine {
 
             for (String id : keysToUpdate) {
                 Map<String, String> currData = t.getRow(id).getData();
-                System.out.println(currData);
                 currData.put(setColumn, newValue); // Handle column name case-insensitively
-                System.out.println(currData);
                 t.updateRow(id, currData);
-                
+
                 rowCount++;
             }
         } else {
@@ -308,8 +314,8 @@ public class Engine {
     public String create(String[] tokens) {
         // example for reference CREATE TABLE student (id, name, age, gpa, deans_list)
 
-        String[] colVals = Arrays.stream(queryBetweenParentheses(tokens, 3).toLowerCase().split(",")).map(x -> x.trim()).toArray(String[]::new);
-        System.out.println(Arrays.toString(colVals));
+        String[] colVals = Arrays.stream(queryBetweenParentheses(tokens, 3).toLowerCase().split(",")).map(x -> x.trim())
+                .toArray(String[]::new);
         String name = tokens[2].toLowerCase().trim(); // Ensure table names are case-insensitive
         Table created = new Table(name, Arrays.asList(colVals));
         data.put(name, created);
@@ -339,6 +345,8 @@ public class Engine {
 
         // Rows data
         for (Row row : rows) {
+            if (row == null)
+                continue; // Skip null rows
             Map<String, String> rowData = row.getData();
             for (String column : columns) {
                 sb.append(rowData.get(column)).append("\t");
