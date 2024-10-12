@@ -57,6 +57,9 @@ public class Main {
 
         // Prepopulate the tables in preparation for evaluation
         prepopulateTables(random);
+        long startTime = System.currentTimeMillis();
+        long prevTime = System.currentTimeMillis();
+
 
         // Loop to simulate millions of queries
         for (int i = 0; i < numberOfQueries; i++) {
@@ -85,7 +88,14 @@ public class Main {
 
             // Print progress every 100,000 queries
             if (i % 10000 == 0){
-                System.out.println("Processed " + i + " queries...");
+                long temp = System.currentTimeMillis();
+
+                long totalTime = temp - startTime;
+                totalTime /= 1000;
+                long queryTime =  temp - prevTime;
+                prevTime = temp;
+                queryTime /= 1000;
+                System.out.println("Processed " + i + " queries..." +" Time taken for 10k(s): " + queryTime+ ", Total time(s): " + totalTime);
             }
         }
 

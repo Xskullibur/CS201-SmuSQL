@@ -34,6 +34,9 @@ public class Engine {
         String valueList = queryBetweenParentheses(tokens, 4); // Get values list between parentheses
         List<String> values = Arrays.asList(valueList.split(",")); // These are the values in the row to be inserted.
         Table t = data.get(tableName);
+        if(t == null){
+            return "table " + tableName + " does not exist";
+        }
         List<String> cols = t.getColumns();
         Map<String, String> colsVals = new HashMap<>();
         // id is handled separately
