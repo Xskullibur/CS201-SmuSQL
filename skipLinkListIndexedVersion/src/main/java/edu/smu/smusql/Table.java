@@ -82,7 +82,9 @@ public class Table {
             // Update the row's data in the primary skip list
             for (Map.Entry<String, String> entry : newData.entrySet()) {
                 if (columns.contains(entry.getKey())) {
-                    row.getData().put(entry.getKey(), entry.getValue());
+                    Map<String, String> rowData = row.getData();
+                    rowData.put(entry.getKey(), entry.getValue());
+                    row.setData(rowData);
                 }
             }
 

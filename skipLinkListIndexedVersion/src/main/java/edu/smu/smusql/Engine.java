@@ -1,6 +1,7 @@
 package edu.smu.smusql;
 
 import java.util.*;
+import java.util.stream.*;
 
 public class Engine {
 
@@ -8,7 +9,7 @@ public class Engine {
 
     public String executeSQL(String query) {
         String[] tokens = query.trim().split("\\s+");
-        String command = tokens[0].toUpperCase();  // Commands are always case-insensitive
+        String command = tokens[0].toUpperCase(); // Commands are always case-insensitive
 
         switch (command) {
             case "CREATE":
@@ -36,16 +37,12 @@ public class Engine {
         List<String> cols = t.getColumns();
         Map<String, String> colsVals = new HashMap<>();
         // id is handled separately
-        System.out.println("cols size" + cols.size());
-        System.out.println("asdhfasdfs");
-        System.out.println("vals size "+ values.size()+  ":"+ values.toString());
         if (cols.size() != values.size()) {
             return "invalid insert statement";
         }
-        
 
         for (int i = 0; i < cols.size(); i++) {
-            colsVals.put(cols.get(i).toLowerCase(), values.get(i)); 
+            colsVals.put(cols.get(i).toLowerCase(), values.get(i));
         }
         t.insertRow(values.get(0), colsVals);
 
@@ -68,7 +65,7 @@ public class Engine {
                     whereClauseConditions.add(new String[] { tokens[i].toUpperCase(), null, null, null });
                 } else if (isOperator(tokens[i])) {
                     // Add condition with operator (column, operator, value)
-                    String column = tokens[i - 1].toLowerCase();  // Handle column name case-insensitively
+                    String column = tokens[i - 1].toLowerCase(); // Handle column name case-insensitively
                     String operator = tokens[i];
                     String value = tokens[i + 1];
                     whereClauseConditions.add(new String[] { null, column, operator, value });
@@ -81,13 +78,13 @@ public class Engine {
         if (whereClauseConditions.size() == 1) {
             String[] requirements = whereClauseConditions.get(0);
             List<String> keysToDelete;
-            if(requirements[1].equalsIgnoreCase("id")){
+            if (requirements[1].equalsIgnoreCase("id")) {
                 keysToDelete = t.returnKeysByRequirementsOnId(requirements[2], requirements[3]);
             } else {
                 keysToDelete = t.returnKeysByRequirementsOnIndex(requirements[1], requirements[2],
-                    requirements[3]);
+                        requirements[3]);
             }
-            
+
             for (String id : keysToDelete) {
                 rowCount++;
                 t.deleteRow(id);
@@ -99,17 +96,17 @@ public class Engine {
 
             List<String> keys1 = new ArrayList<>();
 
-            if(reqs1[1].equalsIgnoreCase("ID")){
+            if (reqs1[1].equalsIgnoreCase("ID")) {
                 keys1.addAll(t.returnKeysByRequirementsOnId(reqs1[2], reqs1[3]));
-            } else{
+            } else {
                 keys1.addAll(t.returnKeysByRequirementsOnIndex(reqs1[1], reqs1[2], reqs1[3]));
             }
 
             List<String> keys2 = new ArrayList<>();
 
-            if(reqs2[1].equalsIgnoreCase("ID")){
+            if (reqs2[1].equalsIgnoreCase("ID")) {
                 keys2.addAll(t.returnKeysByRequirementsOnId(reqs2[2], reqs2[3]));
-            } else{
+            } else {
                 keys2.addAll(t.returnKeysByRequirementsOnIndex(reqs2[1], reqs2[2], reqs2[3]));
             }
 
@@ -122,7 +119,7 @@ public class Engine {
                 set1.retainAll(set2);
             }
 
-            for(String id : set1){
+            for (String id : set1) {
                 rowCount++;
                 t.deleteRow(id);
             }
@@ -149,7 +146,7 @@ public class Engine {
                     whereClauseConditions.add(new String[] { tokens[i].toUpperCase(), null, null, null });
                 } else if (isOperator(tokens[i])) {
                     // Add condition with operator (column, operator, value)
-                    String column = tokens[i - 1].toLowerCase();  // Handle column name case-insensitively
+                    String column = tokens[i - 1].toLowerCase(); // Handle column name case-insensitively
                     String operator = tokens[i];
                     String value = tokens[i + 1];
                     whereClauseConditions.add(new String[] { null, column, operator, value });
@@ -165,7 +162,8 @@ public class Engine {
                 if (requirements[1].equalsIgnoreCase("ID")) {
                     keysToSelect.addAll(t.returnKeysByRequirementsOnId(requirements[2], requirements[3]));
                 } else {
-                    keysToSelect.addAll(t.returnKeysByRequirementsOnIndex(requirements[1], requirements[2], requirements[3]));
+                    keysToSelect.addAll(
+                            t.returnKeysByRequirementsOnIndex(requirements[1], requirements[2], requirements[3]));
                 }
 
                 // Retrieve rows
@@ -231,13 +229,13 @@ public class Engine {
 
         // Parse WHERE clause conditions
         if (tokens.length > 6 && tokens[6].equalsIgnoreCase("WHERE")) {
-            for (int i = 5; i < tokens.length; i++) {
+            for (int i = 6; i < tokens.length; i++) {
                 if (tokens[i].equalsIgnoreCase("AND") || tokens[i].equalsIgnoreCase("OR")) {
                     // Add AND/OR conditions
                     whereClauseConditions.add(new String[] { tokens[i].toUpperCase(), null, null, null });
                 } else if (isOperator(tokens[i])) {
                     // Add condition with operator (column, operator, value)
-                    String column = tokens[i - 1].toLowerCase();  // Handle column name case-insensitively
+                    String column = tokens[i - 1].toLowerCase(); // Handle column name case-insensitively
                     String operator = tokens[i];
                     String value = tokens[i + 1];
                     whereClauseConditions.add(new String[] { null, column, operator, value });
@@ -250,12 +248,21 @@ public class Engine {
         int rowCount = 0;
         if (whereClauseConditions.size() == 1) {
             String[] requirements = whereClauseConditions.get(0);
-            List<String> keysToUpdate = t.returnKeysByRequirementsOnIndex(requirements[1], requirements[2], requirements[3]);
+            List<String> keysToUpdate;
+            if (requirements[1].equalsIgnoreCase("id")) {
+                keysToUpdate = t.returnKeysByRequirementsOnId(requirements[2], requirements[3]);
+            } else {
+                keysToUpdate = t.returnKeysByRequirementsOnIndex(requirements[1], requirements[2],
+                        requirements[3]);
+            }
 
             for (String id : keysToUpdate) {
                 Map<String, String> currData = t.getRow(id).getData();
-                currData.put(setColumn, newValue);  // Handle column name case-insensitively
+                System.out.println(currData);
+                currData.put(setColumn, newValue); // Handle column name case-insensitively
+                System.out.println(currData);
                 t.updateRow(id, currData);
+                
                 rowCount++;
             }
         } else {
@@ -290,7 +297,7 @@ public class Engine {
 
             for (String id : set1) {
                 Map<String, String> currData = t.getRow(id).getData();
-                currData.put(setColumn, newValue);  // Handle column name case-insensitively
+                currData.put(setColumn, newValue); // Handle column name case-insensitively
                 t.updateRow(id, currData);
                 rowCount++;
             }
@@ -301,9 +308,9 @@ public class Engine {
     public String create(String[] tokens) {
         // example for reference CREATE TABLE student (id, name, age, gpa, deans_list)
 
-        String[] colVals = queryBetweenParentheses(tokens, 3).toLowerCase().split(",");
+        String[] colVals = Arrays.stream(queryBetweenParentheses(tokens, 3).toLowerCase().split(",")).map(x -> x.trim()).toArray(String[]::new);
         System.out.println(Arrays.toString(colVals));
-        String name = tokens[2].toLowerCase();  // Ensure table names are case-insensitive
+        String name = tokens[2].toLowerCase().trim(); // Ensure table names are case-insensitive
         Table created = new Table(name, Arrays.asList(colVals));
         data.put(name, created);
         return "Table " + name + " created successfully";
