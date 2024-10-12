@@ -5,6 +5,7 @@ import java.util.*;
 public class Table {
     private String name; // Table name
     private List<String> columns; // List of column names
+    private int numCols;
     private SkipList<Row> data; // Primary SkipList to store rows based on the primary key (id)
     private Map<String, SkipList<Indexing>> secondaryIndices; // Secondary indices: column name -> SkipList of Indexing
 
@@ -16,7 +17,7 @@ public class Table {
         this.columns = columns;
         this.data = new SkipList<>();
         this.secondaryIndices = new HashMap<>();
-
+        numCols = columns.size();
         // Automatically creates secondary index for all columns
         for(int i= 1; i < columns.size(); i++){
             createSecondaryIndex(columns.get(i));
@@ -55,7 +56,7 @@ public class Table {
         data.insert(row); // Assuming SkipList has an insert() method
 
         // Update all secondary indices (only for columns that have secondary indices)
-        for (String column : columns) {
+        for (String column : columns.subList(1, numCols)) {
             String columnValue = rowData.get(column);
             if (columnValue != null) {
                 Indexing indexEntry = new Indexing(columnValue, id);
@@ -86,7 +87,7 @@ public class Table {
             }
 
             // Insert new values into secondary indices
-            for (String column : columns) {
+            for (String column : columns.subList(1, numCols)) {
                 String newColumnValue = newData.get(column);
                 if (newColumnValue != null) {
                     Indexing newIndexEntry = new Indexing(newColumnValue, id);

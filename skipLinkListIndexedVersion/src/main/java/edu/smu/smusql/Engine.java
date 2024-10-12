@@ -37,16 +37,16 @@ public class Engine {
         Map<String, String> colsVals = new HashMap<>();
         // id is handled separately
         System.out.println("cols size" + cols.size());
+        System.out.println("asdhfasdfs");
         System.out.println("vals size "+ values.size()+  ":"+ values.toString());
         if (cols.size() != values.size()) {
             return "invalid insert statement";
         }
         
 
-        for (int i = 1; i < cols.size(); i++) {
-            colsVals.put(cols.get(i).toLowerCase(), values.get(i ));  // Handle column names case-insensitively
+        for (int i = 0; i < cols.size(); i++) {
+            colsVals.put(cols.get(i).toLowerCase(), values.get(i)); 
         }
-
         t.insertRow(values.get(0), colsVals);
 
         return "inserted into " + tableName + " successfully";
@@ -80,8 +80,14 @@ public class Engine {
         int rowCount = 0;
         if (whereClauseConditions.size() == 1) {
             String[] requirements = whereClauseConditions.get(0);
-            List<String> keysToDelete = t.returnKeysByRequirementsOnIndex(requirements[1], requirements[2],
+            List<String> keysToDelete;
+            if(requirements[1].equalsIgnoreCase("id")){
+                keysToDelete = t.returnKeysByRequirementsOnId(requirements[2], requirements[3]);
+            } else {
+                keysToDelete = t.returnKeysByRequirementsOnIndex(requirements[1], requirements[2],
                     requirements[3]);
+            }
+            
             for (String id : keysToDelete) {
                 rowCount++;
                 t.deleteRow(id);
@@ -295,7 +301,7 @@ public class Engine {
     public String create(String[] tokens) {
         // example for reference CREATE TABLE student (id, name, age, gpa, deans_list)
 
-        String[] colVals = queryBetweenParentheses(tokens, 3).split(",");
+        String[] colVals = queryBetweenParentheses(tokens, 3).toLowerCase().split(",");
         System.out.println(Arrays.toString(colVals));
         String name = tokens[2].toLowerCase();  // Ensure table names are case-insensitive
         Table created = new Table(name, Arrays.asList(colVals));
