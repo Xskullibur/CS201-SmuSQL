@@ -2,8 +2,6 @@ package edu.smu.smusql;
 
 public class Engine {
 
-    Parser p = new Parser();
-
     public String executeSQL(String query) {
         String[] tokens = query.trim().split("\\s+");
         String command = tokens[0].toUpperCase();
