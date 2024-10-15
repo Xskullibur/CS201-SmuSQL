@@ -1,6 +1,10 @@
 package edu.smu.smusql.parser;
 
 import java.util.List;
+
+import edu.smu.smusql.parser.Token.TokenType;
+import edu.smu.smusql.parser.nodes.*;
+
 import java.util.ArrayList;
 
 public class AstParser {
@@ -13,7 +17,7 @@ public class AstParser {
         this.currentIndex = 0;
     }
 
-    public SQLStatementNode parse() {
+    public ASTNode parse() {
         Token firstToken = tokens.get(0);
         ASTNode statement;
 
@@ -37,7 +41,7 @@ public class AstParser {
                 throw new RuntimeException("Unsupported SQL statement: " + firstToken.value);
         }
 
-        return new SQLStatementNode(statement);
+        return statement;
     }
 
     private CreateTableNode parseCreateTable() {

@@ -5,6 +5,8 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import edu.smu.smusql.parser.Token.TokenType;
+
 public class Tokenizer {
 
     private static final String[] KEYWORDS = {
@@ -103,24 +105,4 @@ public class Tokenizer {
         }
         System.out.println("]");
     }
-}
-
-enum TokenType {
-    KEYWORD, OPERATOR, IDENTIFIER, LITERAL, PUNCTUATION
-}
-
-class Token {
-    TokenType type;
-    String value;
-
-    Token(TokenType type, String value) {
-        this.type = type;
-        this.value = value;
-    }
-
-    @Override
-    public String toString() {
-        return String.format("Token{type=%s, value='%s'}", type, value);
-    }
-
 }
