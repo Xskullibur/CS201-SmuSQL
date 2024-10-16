@@ -147,34 +147,38 @@ public class Engine {
         if (tbl == null) {
             return "ERROR: No such table: " + tableName;
         }
-
+    
         String updateColumn = tokens[3];
         String updateValue = tokens[5];
-
+    
         String condition1Column = tokens[7];
         String condition1Operator = tokens[8];
         String condition1Value = tokens[9];
-
+    
         String condition2Column = null;
         String condition2Operator = null;
         String condition2Value = null;
-
+    
         boolean isAnd = Arrays.asList(tokens).contains("AND");
         boolean isOr = Arrays.asList(tokens).contains("OR");
-
-        if (tokens.length > 10) {
-            condition2Column = tokens[11];
-            condition2Operator = tokens[12];
-            condition2Value = tokens[13];
+    
+        if (isAnd || isOr) {
+            if (tokens.length > 10) {
+                condition2Column = tokens[11];
+                condition2Operator = tokens[12];
+                condition2Value = tokens[13];
+            } else {
+                return "ERROR: Invalid query, missing second condition for AND/OR.";
+            }
         }
-
+    
         Map<String, String> updates = new HashMap<>();
         updates.put(updateColumn, updateValue);
-
+    
         // Fetch rows matching condition1 with inequality handling
         List<Map<String, String>> rowsMatchingCondition1 = tbl.selectWithCondition(condition1Column, condition1Operator, condition1Value);
         int updatedCount = 0;
-
+    
         if (isAnd && condition2Column != null) {
             for (Map<String, String> row : rowsMatchingCondition1) {
                 if (compare(row.get(condition2Column), condition2Operator, condition2Value)) {
@@ -198,7 +202,7 @@ public class Engine {
         } else {
             updatedCount = tbl.updateWithCondition(condition1Column, condition1Operator, condition1Value, updates);
         }
-
+    
         return updatedCount + " row(s) updated.";
     }
 
