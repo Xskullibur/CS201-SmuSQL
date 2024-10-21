@@ -4,6 +4,7 @@ import java.util.List;
 
 import edu.smu.smusql.parser.Token.TokenType;
 import edu.smu.smusql.parser.nodes.*;
+import edu.smu.smusql.parser.nodes.LiteralNode.LiteralNodeType;
 
 import java.util.ArrayList;
 
@@ -56,10 +57,20 @@ public class AstParser {
         expect("INSERT");
         expect("INTO");
         String tableName = expectIdentifier();
-        List<String> columns = parseColumnList();
         expect("VALUES");
-        List<ExpressionNode> values = parseExpressionList();
-        return new InsertNode(tableName, columns, values);
+        expect("(");
+
+        ExpressionNode primaryKey = parseExpression();
+
+        List<ExpressionNode> values = new ArrayList<>();
+        if (match(",")) {
+            do {
+                values.add(parseExpression());
+            } while (match(","));
+        }
+        expect(")");
+        
+        return new InsertNode(tableName, primaryKey, values);
     }
 
     private SelectNode parseSelect() {
@@ -105,16 +116,6 @@ public class AstParser {
         } while (match(","));
         expect(")");
         return columns;
-    }
-
-    private List<ExpressionNode> parseExpressionList() {
-        List<ExpressionNode> expressions = new ArrayList<>();
-        expect("(");
-        do {
-            expressions.add(parseExpression());
-        } while (match(","));
-        expect(")");
-        return expressions;
     }
 
     private List<String> parseColumnNames() {
@@ -166,7 +167,7 @@ public class AstParser {
             return new ColumnNode(token.value);
         } else if (token.type == TokenType.LITERAL) {
             currentIndex++;
-            String type = token.value.startsWith("'") ? "STRING" : "NUMBER";
+            LiteralNodeType type = token.value.startsWith("'") ? LiteralNodeType.STRING : LiteralNodeType.NUMBER;
             return new LiteralNode(token.value, type);
         } else {
             throw new RuntimeException("Unexpected token in expression: " + token.value);
@@ -175,7 +176,7 @@ public class AstParser {
 
     private void expect(String expected) {
         Token token = tokens.get(currentIndex);
-        if (token.type != TokenType.KEYWORD || !token.value.equalsIgnoreCase(expected)) {
+        if ((token.type != TokenType.KEYWORD && token.type != TokenType.PUNCTUATION) || !token.value.equalsIgnoreCase(expected)) {
             throw new RuntimeException("Expected " + expected + ", but got " + token.value);
         }
         currentIndex++;
@@ -201,9 +202,18 @@ public class AstParser {
 
     private boolean match(String value) {
         Token token = tokens.get(currentIndex);
-        if (token.type == TokenType.KEYWORD && token.value.equalsIgnoreCase(value)) {
+        if ((token.type == TokenType.KEYWORD || token.type == TokenType.PUNCTUATION) && token.value.equalsIgnoreCase(value)) {
             currentIndex++;
             return true;
+        }
+        return false;
+    }
+
+    private boolean peek(String value) {
+        if (currentIndex < tokens.size()) {
+            Token token = tokens.get(currentIndex);
+            return (token.type == TokenType.KEYWORD || token.type == TokenType.PUNCTUATION) 
+                   && token.value.equalsIgnoreCase(value);
         }
         return false;
     }

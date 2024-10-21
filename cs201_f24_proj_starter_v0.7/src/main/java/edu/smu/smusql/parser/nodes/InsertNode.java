@@ -5,12 +5,12 @@ import java.util.List;
 // Node for INSERT statements
 public class InsertNode extends ASTNode {
     String tableName;
-    List<String> columns;
+    ExpressionNode primaryKey;
     List<ExpressionNode> values;
 
-    public InsertNode(String tableName, List<String> columns, List<ExpressionNode> values) {
+    public InsertNode(String tableName, ExpressionNode primaryKey, List<ExpressionNode> values) {
         this.tableName = tableName;
-        this.columns = columns;
+        this.primaryKey = primaryKey;
         this.values = values;
     }
 
@@ -18,12 +18,12 @@ public class InsertNode extends ASTNode {
         return tableName;
     }
 
-    public List<String> getColumns() {
-        return columns;
-    }
-
     public List<ExpressionNode> getValues() {
         return values;
+    }
+
+    public LiteralNode getPrimaryKey() {
+        return (LiteralNode) primaryKey;
     }
 
 }
