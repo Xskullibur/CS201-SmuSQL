@@ -2,6 +2,8 @@ package edu.smu.smusql;
 
 import java.util.*;
 
+import edu.smu.smusql.bplustreeA.BPlusTreeEngine;
+
 // @author ziyuanliu@smu.edu.sg
 
 public class Main {
@@ -9,7 +11,7 @@ public class Main {
      *  Main method for accessing the command line interface of the database engine.
      *  MODIFICATION OF THIS FILE IS NOT RECOMMENDED!
      */
-    static Engine dbEngine = new Engine();
+    static BPlusTreeEngine dbEngine = new BPlusTreeEngine();
     public static void main(String[] args) {
 
         Scanner scanner = new Scanner(System.in);

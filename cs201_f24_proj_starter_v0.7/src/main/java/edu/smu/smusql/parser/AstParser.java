@@ -112,7 +112,10 @@ public class AstParser {
         List<String> columns = new ArrayList<>();
         expect("(");
         do {
-            columns.add(expectIdentifier());
+            String identifier = expectIdentifier();
+            if (!identifier.equals("id")) {
+                columns.add(identifier);
+            }
         } while (match(","));
         expect(")");
         return columns;
