@@ -10,10 +10,13 @@ public class HashMapWithSecondaryKey<K1 extends Comparable<K1>, K2 extends Compa
     private SkipList<K2> secondaryIndex;
     private Map<K2, List<K1>> secondaryToPrimaryMap;
 
+    private Map<K1, K2> primaryToSecondaryMap;
+
     public HashMapWithSecondaryKey() {
         this.primaryMap = new HashMap<>();
         this.secondaryIndex = new SkipList<>();
         this.secondaryToPrimaryMap = new HashMap<>();
+        this.primaryToSecondaryMap = new HashMap<>();
     }
 
     // Insert a key-value pair into both primary map and secondary index
@@ -62,5 +65,19 @@ public class HashMapWithSecondaryKey<K1 extends Comparable<K1>, K2 extends Compa
         }
         return false;
     }
+
+    public void update(K1 primaryKey, K2 newSecondaryKey, V newValue) {
+        V oldValue = primaryMap.get(primaryKey);
+        if (oldValue != null) {
+            K2 oldSecondaryKey = getSecondaryKeyByPrimaryKey(primaryKey); // You might need to track this
+            deleteByPrimaryKey(primaryKey, oldSecondaryKey);
+            insert(primaryKey, newSecondaryKey, newValue);
+        }
+    }
+
+    public K2 getSecondaryKeyByPrimaryKey(K1 primaryKey) {
+        return primaryToSecondaryMap.get(primaryKey);
+    }
+    
 }
 
