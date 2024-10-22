@@ -162,15 +162,23 @@ public class AstParser {
 
     private ExpressionNode parseExpression() {
         Token token = tokens.get(currentIndex);
-        if (token.type == TokenType.IDENTIFIER) {
-            currentIndex++;
-            return new ColumnNode(token.value);
-        } else if (token.type == TokenType.LITERAL) {
-            currentIndex++;
-            LiteralNodeType type = token.value.startsWith("'") ? LiteralNodeType.STRING : LiteralNodeType.NUMBER;
-            return new LiteralNode(token.value, type);
-        } else {
-            throw new RuntimeException("Unexpected token in expression: " + token.value);
+        switch (token.type) {
+            case IDENTIFIER:
+                currentIndex++;
+                return new ColumnNode(token.value);
+            case LITERAL:
+                currentIndex++;
+                LiteralNodeType type;
+                if (token.value.startsWith("'")) {
+                    type = LiteralNodeType.STRING;
+                } else if (token.value.contains(".")) {
+                    type = LiteralNodeType.FLOAT;
+                } else {
+                    type = LiteralNodeType.NUMBER;
+                }
+                return new LiteralNode(token.value, type);
+            default:
+                throw new RuntimeException("Unexpected token in expression: " + token.value);
         }
     }
 
@@ -216,9 +224,5 @@ public class AstParser {
                    && token.value.equalsIgnoreCase(value);
         }
         return false;
-    }
-
-    public static void main(String[] args) {
-        
     }
 }

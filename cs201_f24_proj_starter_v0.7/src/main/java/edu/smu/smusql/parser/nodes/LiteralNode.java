@@ -4,7 +4,7 @@ package edu.smu.smusql.parser.nodes;
 public class LiteralNode extends ExpressionNode {
 
     public enum LiteralNodeType {
-        STRING, NUMBER
+        STRING, NUMBER, FLOAT
     }
 
     Object value;
@@ -20,24 +20,38 @@ public class LiteralNode extends ExpressionNode {
             case NUMBER:
                 this.value = Integer.parseInt(value);
                 break;
+            case FLOAT:
+                this.value = Float.parseFloat(value);
+                break;
             default:
                 this.value = value;
                 break;
         }
     }
-    
+
     public String getStringValue() {
         if (type != LiteralNodeType.STRING) {
-            throw new IllegalStateException("Value is not a STRING");
+            throw new IllegalStateException("Expected STRING received: " + value);
         }
         return (String) value;
     }
 
     public Integer getIntegerValue() {
         if (type != LiteralNodeType.NUMBER) {
-            throw new IllegalStateException("Value is not a NUMBER");
+            throw new IllegalStateException("Expected NUMBER received: " + value);
         }
         return (Integer) value;
+    }
+
+    public Float getFloatValue() {
+        if (type != LiteralNodeType.FLOAT) {
+            throw new IllegalStateException("Expected FLOAT received: " + value);
+        }
+        return (Float) value;
+    }
+
+    public Object getValue() {
+        return value;
     }
 
     public LiteralNodeType getType() {
