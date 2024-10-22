@@ -4,14 +4,49 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class BPlusTree<K extends Comparable<K>, V> {
+
+    public static class Range<K> {
+        private K start;
+        private K end;
+    
+        public Range(K start, K end) {
+            this.start = start;
+            this.end = end;
+        }
+    
+        public K getStart() {
+            return start;
+        }
+    
+        public K getEnd() {
+            return end;
+        }
+    }
+
     private Node root;
     private int order;
     private int size;
+    private LeafNode firstLeaf;
 
     public BPlusTree(int order) {
         this.order = order;
-        root = new LeafNode();
-        size = 0;
+        this.root = new LeafNode();
+        this.firstLeaf = (LeafNode) root;
+        this.size = 0;
+    }
+
+    public List<V> getAllValues() {
+        List<V> allValues = new ArrayList<>();
+        LeafNode current = firstLeaf;
+        
+        while (current != null) {
+            for (List<V> valueList : current.values) {
+                allValues.addAll(valueList);
+            }
+            current = current.next;
+        }
+        
+        return allValues;
     }
 
     // Insert a key-value pair into the B+ tree
@@ -29,7 +64,8 @@ public class BPlusTree<K extends Comparable<K>, V> {
 
     // Search for a value by key in the B+ tree
     public List<V> search(K key) {
-        return root.search(key); // Return list of values instead of single value
+
+        return root.search(key);
     }
 
     public List<V> rangeSearch(K startKey, K endKey) {
@@ -45,17 +81,19 @@ public class BPlusTree<K extends Comparable<K>, V> {
     }
 
     private abstract class Node {
-        List<K> keys; // List of keys in the node
+        List<K> keys;
 
-        abstract List<V> search(K key); // Abstract method to search for a key
+        abstract List<V> search(K key);
 
-        abstract Node insert(K key, V value); // Abstract method for insert
+        abstract Node insert(K key, V value);
 
-        abstract K getFirstLeafKey(); // Get first leaf key
+        abstract K getFirstLeafKey();
 
         abstract List<V> rangeSearch(K startKey, K endKey);
 
         abstract void update(K key, V newValue);
+
+        abstract List<V> getAllChildren();
     }
 
     private class InternalNode extends Node {
@@ -64,6 +102,15 @@ public class BPlusTree<K extends Comparable<K>, V> {
         InternalNode() {
             this.keys = new ArrayList<>();
             this.children = new ArrayList<>();
+        }
+
+        @Override
+        List<V> getAllChildren() {
+            List<V> allValues = new ArrayList<>();
+            for (Node child : children) {
+                allValues.addAll(child.getAllChildren());
+            }
+            return allValues;
         }
 
         @Override
@@ -140,6 +187,15 @@ public class BPlusTree<K extends Comparable<K>, V> {
             this.keys = new ArrayList<>();
             this.values = new ArrayList<>();
             this.next = null;
+        }
+
+        @Override
+        List<V> getAllChildren() {
+            List<V> allValues = new ArrayList<>();
+            for (List<V> valueList : values) {
+                allValues.addAll(valueList);
+            }
+            return allValues;
         }
 
         @Override

@@ -1,5 +1,7 @@
 package edu.smu.smusql.bplustreeA;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -14,13 +16,154 @@ public class BPlusTreeEngine {
     private Map<String, BPlusTreeTable> database;
     private Map<String, BPlusTree<Integer, Integer>> indexDatabase;
 
-    public BPlusTreeEngine() {
-        this.database = new HashMap<>();
+    private <T> T retrieveTable(Map<String, T> database, String tableName) {
 
-        if (Constants.INDEXING_ENABLED) {
-            indexDatabase = new HashMap<>();
+        if (!database.containsKey(tableName)) {
+            throw new RuntimeException("ERROR: Table " + tableName + " does not exist");
         }
 
+        return database.get(tableName);
+    }
+
+    private void insertIndexTable(String tableName, Integer index, Integer primaryKey) {
+        BPlusTree<Integer, Integer> indexTree = retrieveTable(indexDatabase, tableName);
+        indexTree.insert(index, primaryKey);
+    }
+
+    private List<Integer> filterIndexes(String tableName, ConditionNode node) {
+
+        if (node == null) {
+            return null;
+        }
+
+        // Evaluate the condition node
+        return evaluateConditionNode(tableName, node);
+    }
+
+    private List<Integer> evaluateConditionNode(String tableName, ConditionNode node) {
+
+        if (node.getLeft() instanceof ConditionNode && node.getRight() instanceof ConditionNode) {
+            
+            // Both left and right are ConditionNodes
+            List<Integer> leftResult = evaluateConditionNode(tableName, (ConditionNode) node.getLeft());
+            List<Integer> rightResult = evaluateConditionNode(tableName, (ConditionNode) node.getRight());
+            return combineResults(leftResult, rightResult, node.getOperator());
+
+        } else if (node.getLeft() instanceof ExpressionNode && node.getRight() instanceof ExpressionNode) {
+            // Both left and right are ExpressionNodes
+            return evaluateSimpleCondition(tableName, node);
+        } else {
+            throw new RuntimeException("Unsupported condition node structure");
+        }
+    }
+
+    private List<Integer> evaluateSimpleCondition(String tableName, ConditionNode node) {
+        ExpressionNode left = (ExpressionNode) node.getLeft();
+        ExpressionNode right = (ExpressionNode) node.getRight();
+        String operator = node.getOperator();
+
+        if (!(left instanceof ColumnNode) || !(right instanceof LiteralNode)) {
+            throw new RuntimeException("Unsupported simple condition structure");
+        }
+
+        String columnName = ((ColumnNode) left).getName();
+        LiteralNode literalNode = (LiteralNode) right;
+
+        Integer value = literalNode.getType() == LiteralNode.LiteralNodeType.NUMBER
+                    ? literalNode.getIntegerValue()
+                    : literalNode.getValue().hashCode();
+
+        String indexTableName = Constants.getIndexTableName(tableName, columnName);
+        BPlusTree<Integer, Integer> indexTree = retrieveTable(indexDatabase, indexTableName);
+
+        List<Integer> result = evaluateCondition(indexTree, value, operator);
+        return result;
+    }
+
+    private List<Integer> evaluateCondition(BPlusTree<Integer, Integer> indexTree, Integer value, String operator) {
+        switch (operator) {
+            case "=":
+                return indexTree.search(value);
+            case "!=":
+                // TODO: This can be optimized
+                // Retrieve all values and filter out the ones equal to the given value
+                List<Integer> allValues = indexTree.rangeSearch(Integer.MIN_VALUE, Integer.MAX_VALUE);
+                allValues.removeAll(indexTree.search(value));
+                return allValues;
+            case "<":
+                return indexTree.rangeSearch(Integer.MIN_VALUE, value - 1);
+            case "<=":
+                return indexTree.rangeSearch(Integer.MIN_VALUE, value);
+            case ">":
+                return indexTree.rangeSearch(value + 1, Integer.MAX_VALUE);
+            case ">=":
+                return indexTree.rangeSearch(value, Integer.MAX_VALUE);
+            default:
+                throw new RuntimeException("Unsupported operator: " + operator);
+        }
+    }
+
+    private List<Integer> combineResults(List<Integer> leftResult, List<Integer> rightResult, String operator) {
+        if (operator.equals("AND")) {
+            leftResult.retainAll(rightResult);
+            return leftResult;
+        } else if (operator.equals("OR")) {
+            leftResult.addAll(rightResult);
+            return leftResult.stream().distinct().collect(Collectors.toList());
+        } else {
+            throw new RuntimeException("Unsupported logical operator: " + operator);
+        }
+    }
+
+    private List<BPlusTree.Range<Integer>> groupKeysIntoRanges(List<Integer> keys) {
+
+        List<BPlusTree.Range<Integer>> ranges = new ArrayList<>();
+
+        if (keys.isEmpty()) {
+            return ranges;
+        }
+
+        Collections.sort(keys);
+        Integer start = keys.get(0);
+        Integer end = start;
+
+        for (int i = 1; i < keys.size(); i++) {
+            Integer current = keys.get(i);
+            if (current.equals(end + 1)) {
+                end = current;
+            } else {
+                ranges.add(new BPlusTree.Range<>(start, end));
+                start = current;
+                end = start;
+            }
+        }
+        ranges.add(new BPlusTree.Range<>(start, end));
+
+        return ranges;
+    }
+
+    private String formatSelectResults(List<Map<String, Object>> rows, List<String> columns) {
+        StringBuilder sb = new StringBuilder();
+    
+        // Header (column names)
+        sb.append(String.join("\t", columns)).append("\n");
+    
+        // Rows data
+        for (Map<String, Object> row : rows) {
+            if (row == null) continue; // Skip null rows
+            for (String column : columns) {
+                Object value = row.get(column);
+                sb.append(value != null ? value.toString() : "NULL").append("\t");
+            }
+            sb.append("\n");
+        }
+    
+        return sb.toString().trim(); // Return the formatted string
+    }
+
+    public BPlusTreeEngine() {
+        this.database = new HashMap<>();
+        indexDatabase = new HashMap<>();
     }
 
     public String executeSQL(String query) {
@@ -49,28 +192,26 @@ public class BPlusTreeEngine {
         String tableName = node.getTableName();
         List<String> columns = node.getColumns();
 
+        // Add table into database
         if (database.containsKey(tableName)) {
-            return "ERROR: Table " + tableName + " already exists";
+            throw new RuntimeException("Table " + tableName + " already exist");
         }
 
-        // Add table into database
         BPlusTreeTable table = new BPlusTreeTable(columns);
         database.put(tableName, table);
 
         /**
          * Create Indexing Trees with column fields as Key and PrimaryKey as Value
          */
-        if (Constants.INDEXING_ENABLED) {
-            for (String col : columns) {
-                BPlusTree<Integer, Integer> indexTree = new BPlusTree<>(Constants.B_PLUS_TREE_ORDER);
-                String indexTableName = Constants.getIndexTableName(tableName, col);
-                indexDatabase.put(indexTableName, indexTree);
+        for (String col : columns) {
+            BPlusTree<Integer, Integer> indexTree = new BPlusTree<>(Constants.B_PLUS_TREE_ORDER);
+            String indexTableName = Constants.getIndexTableName(tableName, col);
+            indexDatabase.put(indexTableName, indexTree);
 
-                if (Constants.LOGGING) {
-                    System.out.println("Indexing Table " + indexTableName + " created successfully");
-                }
-
+            if (Constants.LOGGING) {
+                System.out.println("Indexing Table " + indexTableName + " created successfully");
             }
+
         }
 
         return "Table " + tableName + " created successfully";
@@ -86,44 +227,49 @@ public class BPlusTreeEngine {
      *         Returns an error message if the specified table does not exist.
      */
     public String insert(InsertNode node) {
-    
+
         // Retrieve Query Information
         String tableName = node.getTableName();
         Integer primaryKey = node.getPrimaryKey().getIntegerValue();
         List<LiteralNode> values = node.getValues().stream()
                 .map(LiteralNode.class::cast)
                 .collect(Collectors.toList());
-    
-        if (!database.containsKey(tableName)) {
-            throw new RuntimeException("ERROR: Table " + tableName + " does not exist");
-        }
-    
+
         // Retrieve Table Information
-        BPlusTreeTable table = database.get(tableName);
+        BPlusTreeTable table = retrieveTable(database, tableName);
         List<String> columns = table.getColumns();
-    
+
         if (values.size() != columns.size()) {
             throw new RuntimeException("ERROR: Column count does not match value count");
         }
-    
+
         // Populate inserted table values
         Map<String, Object> rowData = new HashMap<>();
 
         for (int i = 0; i < columns.size(); i++) {
 
             LiteralNode literalNode = values.get(i);
-            Object value = literalNode.getType() == LiteralNode.LiteralNodeType.STRING 
-                    ? literalNode.getStringValue() 
-                    : literalNode.getIntegerValue();
+            Object value;
+            switch (literalNode.getType()) {
+                case STRING:
+                    value = literalNode.getStringValue();
+                    break;
+                case NUMBER:
+                    value = literalNode.getIntegerValue();
+                    break;
+                case FLOAT:
+                    value = literalNode.getFloatValue();
+                    break;
+                default:
+                    throw new IllegalStateException("Unexpected LiteralNodeType: " + literalNode.getType());
+            }
 
             rowData.put(columns.get(i), value);
 
-            if (Constants.INDEXING_ENABLED) {
-                String indexTableName = Constants.getIndexTableName(tableName, columns.get(i));
-                insertIndexTable(indexTableName, value.hashCode(), primaryKey);
-            }
+            String indexTableName = Constants.getIndexTableName(tableName, columns.get(i));
+            insertIndexTable(indexTableName, value.hashCode(), primaryKey);
         }
-    
+
         // Get the table
         BPlusTree<Integer, Map<String, Object>> rows = table.getRows();
         rows.insert(primaryKey, rowData);
@@ -131,22 +277,39 @@ public class BPlusTreeEngine {
         return "1 row inserted successfully";
     }
 
-    private void insertIndexTable(String tableName, Integer index, Integer primaryKey) {
+    public String select(SelectNode node) {
 
-        if (!indexDatabase.containsKey(tableName)) {
-            throw new RuntimeException("ERROR: Table " + tableName + " does not exist");
+        // Retrieve query information
+        String tableName = node.getTableName();
+        ConditionNode whereClause = node.getWhereClause();
+
+        // Retrieve table
+        BPlusTreeTable table = retrieveTable(database, tableName);
+        BPlusTree<Integer, Map<String, Object>> rows = table.getRows();
+        List<String> columns = table.getColumns();
+
+        // Handle SELECT * Query
+        if (whereClause == null && node.getColumns().get(0) == "*") {
+            return formatSelectResults(rows.getAllValues(), columns);
+        }
+        
+        // Filter indexes based on where clause
+        List<Integer> filteredKeys = filterIndexes(tableName, whereClause);
+
+        // Group keys into ranges
+        List<BPlusTree.Range<Integer>> ranges = groupKeysIntoRanges(filteredKeys);
+
+        // Retrieve filtered Rows
+        List<Map<String, Object>> fitleredRows = new ArrayList<>();
+
+        for (BPlusTree.Range<Integer> range : ranges) {
+            fitleredRows.addAll(rows.rangeSearch(range.getStart(), range.getEnd()));
         }
 
-        BPlusTree<Integer, Integer> indexTree = indexDatabase.get(tableName);
-        indexTree.insert(index, primaryKey);
+        return formatSelectResults(fitleredRows, columns);
     }
 
     public String delete(DeleteNode node) {
-        // TODO
-        return "not implemented";
-    }
-
-    public String select(SelectNode node) {
         // TODO
         return "not implemented";
     }

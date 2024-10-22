@@ -187,7 +187,7 @@ public class AstParser {
 
     private void expect(String expected) {
         Token token = tokens.get(currentIndex);
-        if ((token.type != TokenType.KEYWORD && token.type != TokenType.PUNCTUATION)
+        if ((token.type != TokenType.KEYWORD && token.type != TokenType.OPERATOR && token.type != TokenType.PUNCTUATION)
                 || !token.value.equalsIgnoreCase(expected)) {
             throw new RuntimeException("Expected " + expected + ", but got " + token.value);
         }
