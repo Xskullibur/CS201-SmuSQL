@@ -43,7 +43,7 @@ public class BPlusTreeEngine {
     private List<Integer> evaluateConditionNode(String tableName, ConditionNode node) {
 
         if (node.getLeft() instanceof ConditionNode && node.getRight() instanceof ConditionNode) {
-            
+
             // Both left and right are ConditionNodes
             List<Integer> leftResult = evaluateConditionNode(tableName, (ConditionNode) node.getLeft());
             List<Integer> rightResult = evaluateConditionNode(tableName, (ConditionNode) node.getRight());
@@ -69,15 +69,65 @@ public class BPlusTreeEngine {
         String columnName = ((ColumnNode) left).getName();
         LiteralNode literalNode = (LiteralNode) right;
 
-        Integer value = literalNode.getType() == LiteralNode.LiteralNodeType.NUMBER
+        // Check if we're searching by primary key
+        if (columnName.equals("id")) { // Assuming "id" is your primary key column name
+            Integer value = literalNode.getType() == LiteralNode.LiteralNodeType.NUMBER
                     ? literalNode.getIntegerValue()
                     : literalNode.getValue().hashCode();
+
+            // For primary key searches, return a single-element list
+            if (operator.equals("=")) {
+                return Collections.singletonList(value);
+            }
+
+            // For other operators, get all keys and filter
+            BPlusTreeTable table = retrieveTable(database, tableName);
+            BPlusTree<Integer, Map<String, Object>> mainTree = table.getRows();
+            List<Integer> allKeys = mainTree.getAllKeys();
+
+            return filterKeysByOperator(allKeys, value, operator);
+        }
+
+        Object value;
+        switch (literalNode.getType()) {
+            case STRING:
+                value = literalNode.getStringValue();
+                break;
+            case NUMBER:
+                value = literalNode.getIntegerValue();
+                break;
+            case FLOAT:
+                value = literalNode.getFloatValue();
+                break;
+            default:
+                throw new IllegalStateException("Unexpected LiteralNodeType: " + literalNode.getType());
+        }
 
         String indexTableName = Constants.getIndexTableName(tableName, columnName);
         BPlusTree<Integer, Integer> indexTree = retrieveTable(indexDatabase, indexTableName);
 
-        List<Integer> result = evaluateCondition(indexTree, value, operator);
-        return result;
+        return evaluateCondition(indexTree, value.hashCode(), operator);
+    }
+
+    private List<Integer> filterKeysByOperator(List<Integer> keys, Integer value, String operator) {
+        return keys.stream()
+                .filter(key -> {
+                    switch (operator) {
+                        case "!=":
+                            return !key.equals(value);
+                        case "<":
+                            return key < value;
+                        case "<=":
+                            return key <= value;
+                        case ">":
+                            return key > value;
+                        case ">=":
+                            return key >= value;
+                        default:
+                            return false;
+                    }
+                })
+                .collect(Collectors.toList());
     }
 
     private List<Integer> evaluateCondition(BPlusTree<Integer, Integer> indexTree, Integer value, String operator) {
@@ -144,21 +194,38 @@ public class BPlusTreeEngine {
 
     private String formatSelectResults(List<Map<String, Object>> rows, List<String> columns) {
         StringBuilder sb = new StringBuilder();
-    
+
         // Header (column names)
         sb.append(String.join("\t", columns)).append("\n");
-    
+
         // Rows data
         for (Map<String, Object> row : rows) {
-            if (row == null) continue; // Skip null rows
+            if (row == null)
+                continue; // Skip null rows
             for (String column : columns) {
                 Object value = row.get(column);
                 sb.append(value != null ? value.toString() : "NULL").append("\t");
             }
             sb.append("\n");
         }
-    
+
         return sb.toString().trim(); // Return the formatted string
+    }
+
+    private boolean isPrimaryKeySearch(ConditionNode whereClause) {
+        if (whereClause == null)
+            return false;
+
+        // Check if this is a simple equality condition on the primary key
+        if (whereClause.getLeft() instanceof ColumnNode
+                && whereClause.getRight() instanceof LiteralNode
+                && whereClause.getOperator().equals("=")) {
+
+            String columnName = ((ColumnNode) whereClause.getLeft()).getName();
+            return columnName.equals("id"); // Assuming "id" is your primary key column name
+        }
+
+        return false;
     }
 
     public BPlusTreeEngine() {
@@ -292,9 +359,14 @@ public class BPlusTreeEngine {
         if (whereClause == null && node.getColumns().get(0) == "*") {
             return formatSelectResults(rows.getAllValues(), columns);
         }
-        
+
         // Filter indexes based on where clause
         List<Integer> filteredKeys = filterIndexes(tableName, whereClause);
+
+        if (isPrimaryKeySearch(whereClause)) {
+            List<Map<String, Object>> result = rows.search(filteredKeys.get(0));
+            return formatSelectResults(result, columns);
+        }
 
         // Group keys into ranges
         List<BPlusTree.Range<Integer>> ranges = groupKeysIntoRanges(filteredKeys);

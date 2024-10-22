@@ -49,6 +49,18 @@ public class BPlusTree<K extends Comparable<K>, V> {
         return allValues;
     }
 
+    public List<K> getAllKeys() {
+        List<K> allKeys = new ArrayList<>();
+        LeafNode current = firstLeaf;
+        
+        while (current != null) {
+            allKeys.addAll(current.keys);
+            current = current.next;
+        }
+        
+        return allKeys;
+    }
+
     // Insert a key-value pair into the B+ tree
     public void insert(K key, V value) {
         Node newNode = root.insert(key, value); // Insert into the root node
@@ -94,6 +106,8 @@ public class BPlusTree<K extends Comparable<K>, V> {
         abstract void update(K key, V newValue);
 
         abstract List<V> getAllChildren();
+
+        abstract List<K> getKeys();
     }
 
     private class InternalNode extends Node {
@@ -163,6 +177,15 @@ public class BPlusTree<K extends Comparable<K>, V> {
         void update(K key, V newValue) {
             int childIndex = findChildIndex(key);
             children.get(childIndex).update(key, newValue);
+        }
+
+        @Override
+        List<K> getKeys() {
+            List<K> nodeKeys = new ArrayList<>();
+            for (Node child : children) {
+                nodeKeys.addAll(child.getKeys());
+            }
+            return nodeKeys;
         }
 
         Node split() {
@@ -269,6 +292,11 @@ public class BPlusTree<K extends Comparable<K>, V> {
             if (index != -1) {
                 values.get(index).set(0, newValue); // Replace first value for simplicity
             }
+        }
+
+        @Override
+        List<K> getKeys() {
+            return new ArrayList<>(keys);
         }
 
         Node split() {
