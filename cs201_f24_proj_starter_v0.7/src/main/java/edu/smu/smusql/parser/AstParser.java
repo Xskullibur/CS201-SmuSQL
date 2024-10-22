@@ -69,7 +69,7 @@ public class AstParser {
             } while (match(","));
         }
         expect(")");
-        
+
         return new InsertNode(tableName, primaryKey, values);
     }
 
@@ -146,13 +146,13 @@ public class AstParser {
 
     private ConditionNode parseCondition() {
         ConditionNode condition = parseSimpleCondition();
-        
+
         while (match("AND") || match("OR")) {
             String operator = tokens.get(currentIndex - 1).value;
             ConditionNode right = parseSimpleCondition();
             condition = new ConditionNode(condition, operator, right);
         }
-        
+
         return condition;
     }
 
@@ -165,21 +165,30 @@ public class AstParser {
 
     private ExpressionNode parseExpression() {
         Token token = tokens.get(currentIndex);
-        if (token.type == TokenType.IDENTIFIER) {
-            currentIndex++;
-            return new ColumnNode(token.value);
-        } else if (token.type == TokenType.LITERAL) {
-            currentIndex++;
-            LiteralNodeType type = token.value.startsWith("'") ? LiteralNodeType.STRING : LiteralNodeType.NUMBER;
-            return new LiteralNode(token.value, type);
-        } else {
-            throw new RuntimeException("Unexpected token in expression: " + token.value);
+        switch (token.type) {
+            case IDENTIFIER:
+                currentIndex++;
+                return new ColumnNode(token.value);
+            case LITERAL:
+                currentIndex++;
+                LiteralNodeType type;
+                if (token.value.startsWith("'")) {
+                    type = LiteralNodeType.STRING;
+                } else if (token.value.contains(".")) {
+                    type = LiteralNodeType.FLOAT;
+                } else {
+                    type = LiteralNodeType.NUMBER;
+                }
+                return new LiteralNode(token.value, type);
+            default:
+                throw new RuntimeException("Unexpected token in expression: " + token.value);
         }
     }
 
     private void expect(String expected) {
         Token token = tokens.get(currentIndex);
-        if ((token.type != TokenType.KEYWORD && token.type != TokenType.PUNCTUATION) || !token.value.equalsIgnoreCase(expected)) {
+        if ((token.type != TokenType.KEYWORD && token.type != TokenType.PUNCTUATION)
+                || !token.value.equalsIgnoreCase(expected)) {
             throw new RuntimeException("Expected " + expected + ", but got " + token.value);
         }
         currentIndex++;
@@ -204,8 +213,14 @@ public class AstParser {
     }
 
     private boolean match(String value) {
+
+        if (currentIndex >= tokens.size()) {
+            return false;
+        }
+
         Token token = tokens.get(currentIndex);
-        if ((token.type == TokenType.KEYWORD || token.type == TokenType.PUNCTUATION) && token.value.equalsIgnoreCase(value)) {
+        if ((token.type == TokenType.KEYWORD || token.type == TokenType.PUNCTUATION)
+                && token.value.equalsIgnoreCase(value)) {
             currentIndex++;
             return true;
         }
@@ -215,13 +230,9 @@ public class AstParser {
     private boolean peek(String value) {
         if (currentIndex < tokens.size()) {
             Token token = tokens.get(currentIndex);
-            return (token.type == TokenType.KEYWORD || token.type == TokenType.PUNCTUATION) 
-                   && token.value.equalsIgnoreCase(value);
+            return (token.type == TokenType.KEYWORD || token.type == TokenType.PUNCTUATION)
+                    && token.value.equalsIgnoreCase(value);
         }
         return false;
-    }
-
-    public static void main(String[] args) {
-        
     }
 }
