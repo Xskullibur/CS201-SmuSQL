@@ -65,7 +65,7 @@ public class BPlusTreeEngine {
         LiteralNode literalNode = (LiteralNode) right;
 
         // Check if we're searching by primary key
-        if (columnName.equals("id")) { // Assuming "id" is your primary key column name
+        if (columnName.equals("id")) {
             Integer value = literalNode.getType() == LiteralNode.LiteralNodeType.NUMBER
                     ? literalNode.getIntegerValue()
                     : literalNode.getValue().hashCode();
@@ -225,22 +225,6 @@ public class BPlusTreeEngine {
         return sb.toString().trim(); // Return the formatted string
     }
 
-    private boolean isPrimaryKeySearch(ConditionNode whereClause) {
-        if (whereClause == null)
-            return false;
-
-        // Check if this is a simple equality condition on the primary key
-        if (whereClause.getLeft() instanceof ColumnNode
-                && whereClause.getRight() instanceof LiteralNode
-                && whereClause.getOperator().equals("=")) {
-
-            String columnName = ((ColumnNode) whereClause.getLeft()).getName();
-            return columnName.equals("id"); // Assuming "id" is your primary key column name
-        }
-
-        return false;
-    }
-
     public BPlusTreeEngine() {
         this.database = new HashMap<>();
         indexDatabase = new HashMap<>();
@@ -344,6 +328,21 @@ public class BPlusTreeEngine {
         return "1 row inserted successfully";
     }
 
+    private List<Map<String, Object>> retrieveFilteredRows(List<Integer> filteredKeys,
+            BPlusTree<Integer, Map<String, Object>> rows) {
+
+        // Group keys into ranges
+        List<BPlusTree.Range<Integer>> ranges = groupKeysIntoRanges(filteredKeys);
+
+        // Retrieve filtered Rows
+        List<Map<String, Object>> fitleredRows = new ArrayList<>();
+
+        for (BPlusTree.Range<Integer> range : ranges) {
+            fitleredRows.addAll(rows.rangeSearch(range.getStart(), range.getEnd()));
+        }
+        return fitleredRows;
+    }
+
     public String select(SelectNode node) {
 
         // Retrieve query information
@@ -360,30 +359,55 @@ public class BPlusTreeEngine {
             return formatSelectResults(rows.getAllValues(), columns);
         }
 
-        // Filter indexes based on where clause
+        // Get primary keys based on whereClause
         List<Integer> filteredKeys = filterIndexes(tableName, whereClause);
+        // Get rows using filteredKeys
+        List<Map<String, Object>> fitleredRows = retrieveFilteredRows(filteredKeys, rows);
 
-        if (isPrimaryKeySearch(whereClause)) {
-            List<Map<String, Object>> result = rows.search(filteredKeys.get(0));
-            return formatSelectResults(result, columns);
-        }
-
-        // Group keys into ranges
-        List<BPlusTree.Range<Integer>> ranges = groupKeysIntoRanges(filteredKeys);
-
-        // Retrieve filtered Rows
-        List<Map<String, Object>> fitleredRows = new ArrayList<>();
-
-        for (BPlusTree.Range<Integer> range : ranges) {
-            fitleredRows.addAll(rows.rangeSearch(range.getStart(), range.getEnd()));
-        }
-
+        // Format and return output
         return formatSelectResults(fitleredRows, columns);
     }
 
     public String delete(DeleteNode node) {
-        // TODO
-        return "not implemented";
+
+        // Retrieve query info
+        String tableName = node.getTableName();
+        ConditionNode whereClause = node.getWhereClause();
+
+        // Retrieve table
+        BPlusTreeTable table = retrieveTable(database, tableName);
+        BPlusTree<Integer, Map<String, Object>> rows = table.getRows();
+
+        // Get primary keys based on whereClause
+        List<Integer> filteredKeys = filterIndexes(tableName, whereClause);
+        // Get rows using filteredKeys
+        List<Map<String, Object>> fitleredRows = retrieveFilteredRows(filteredKeys, rows);
+
+        // Remove entries from the index database
+        for (Map<String,Object> rowData : fitleredRows) {
+            for (Map.Entry<String, Object> map : rowData.entrySet()) {
+                String indexTableName = Constants.getIndexTableName(tableName, map.getKey());
+                removeIndexEntry(indexTableName, convertToNumber(map.getValue()));
+            }
+        }
+
+        for (Integer key : filteredKeys) {
+            rows.removeKey(key);
+        }
+
+        return filteredKeys.size() + " row(s) deleted successfully";
+    }
+
+    private void removeIndexEntry(String indexTableName, Object value) {
+        if (value instanceof String) {
+            indexDatabase.get(indexTableName).removeKey(((String) value).hashCode());
+        } else if (value instanceof Integer) {
+            indexDatabase.get(indexTableName).removeKey((Integer) value);
+        } else if (value instanceof Float) {
+            indexDatabase.get(indexTableName).removeKey((Float) value);
+        } else {
+            throw new IllegalStateException("Unexpected value type for removal: " + value.getClass());
+        }
     }
 
     public String update(UpdateNode node) {

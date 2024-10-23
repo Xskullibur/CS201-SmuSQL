@@ -8,16 +8,16 @@ public class BPlusTree<K extends Number, V> {
     public static class Range<K> {
         private K start;
         private K end;
-    
+
         public Range(K start, K end) {
             this.start = start;
             this.end = end;
         }
-    
+
         public K getStart() {
             return start;
         }
-    
+
         public K getEnd() {
             return end;
         }
@@ -40,26 +40,26 @@ public class BPlusTree<K extends Number, V> {
     public List<V> getAllValues() {
         List<V> allValues = new ArrayList<>();
         LeafNode current = firstLeaf;
-        
+
         while (current != null) {
             for (List<V> valueList : current.values) {
                 allValues.addAll(valueList);
             }
             current = current.next;
         }
-        
+
         return allValues;
     }
 
     public List<K> getAllKeys() {
         List<K> allKeys = new ArrayList<>();
         LeafNode current = firstLeaf;
-        
+
         while (current != null) {
             allKeys.addAll(current.keys);
             current = current.next;
         }
-        
+
         return allKeys;
     }
 
@@ -94,6 +94,39 @@ public class BPlusTree<K extends Number, V> {
         return size; // Return the size of the B+ tree
     }
 
+    public void updateKey(K oldKey, K newKey) {
+        // First get all values associated with the old key
+        List<V> values = search(oldKey);
+        if (values.isEmpty()) {
+            throw new IllegalArgumentException("Key not found: " + oldKey);
+        }
+
+        // Remove all entries with the old key
+        removeKey(oldKey);
+
+        // Insert all values with the new key
+        for (V value : values) {
+            insert(newKey, value);
+        }
+    }
+
+    public void removeKey(K key) {
+        root = root.removeKey(key);
+        size--;
+
+        // If root is an internal node with no keys, make its only child the new root
+        if (root instanceof InternalNode && root.keys.isEmpty() && ((InternalNode) root).children.size() == 1) {
+            root = ((InternalNode) root).children.get(0);
+        }
+
+        // If the root is null, recreate the default root
+        if (root == null) {
+            root = new LeafNode();
+            firstLeaf = (LeafNode) root;
+        }
+
+    }
+
     private abstract class Node {
         List<K> keys;
 
@@ -110,6 +143,8 @@ public class BPlusTree<K extends Number, V> {
         abstract List<V> getAllChildren();
 
         abstract List<K> getKeys();
+
+        abstract Node removeKey(K key);
     }
 
     private class InternalNode extends Node {
@@ -190,6 +225,118 @@ public class BPlusTree<K extends Number, V> {
             return nodeKeys;
         }
 
+        @Override
+        Node removeKey(K key) {
+            int childIndex = findChildIndex(key);
+            Node child = children.get(childIndex);
+            Node result = child.removeKey(key);
+
+            // If child was deleted and this node has only one child
+            if (result == null && children.size() <= 1) {
+                return null;
+            }
+
+            if (childIndex > 0 && childIndex < children.size() && child == children.get(childIndex)) {
+                // Only update the key if the child node still has keys
+                if (!child.keys.isEmpty()) {
+                    keys.set(childIndex - 1, child.getFirstLeafKey());
+                } else {
+                    // If the child has no keys, remove the corresponding key and child
+                    keys.remove(childIndex - 1);
+                    children.remove(childIndex);
+                }
+            }
+        
+            // Handle underflow by merging or redistributing
+            if (child instanceof LeafNode && !child.keys.isEmpty() && child.keys.size() < (order - 1) / 2) {
+                handleLeafUnderflow(childIndex);
+            } else if (child instanceof InternalNode && !child.keys.isEmpty() && child.keys.size() < (order - 1) / 2) {
+                handleInternalUnderflow(childIndex);
+            }
+            
+            return this;
+        }
+
+        private void handleLeafUnderflow(int childIndex) {
+            LeafNode child = (LeafNode) children.get(childIndex);
+            LeafNode leftSibling = childIndex > 0 ? (LeafNode) children.get(childIndex - 1) : null;
+            LeafNode rightSibling = childIndex < children.size() - 1 ? (LeafNode) children.get(childIndex + 1) : null;
+
+            // Try to borrow from right sibling first
+            if (rightSibling != null && rightSibling.keys.size() > (order - 1) / 2) {
+                // Move first key-value pair from right sibling to child
+                child.keys.add(rightSibling.keys.remove(0));
+                child.values.add(rightSibling.values.remove(0));
+                keys.set(childIndex, rightSibling.getFirstLeafKey());
+            }
+            // Try to borrow from left sibling
+            else if (leftSibling != null && leftSibling.keys.size() > (order - 1) / 2) {
+                // Move last key-value pair from left sibling to child
+                child.keys.add(0, leftSibling.keys.remove(leftSibling.keys.size() - 1));
+                child.values.add(0, leftSibling.values.remove(leftSibling.values.size() - 1));
+                keys.set(childIndex - 1, child.getFirstLeafKey());
+            }
+            // Merge with a sibling
+            else if (rightSibling != null) {
+                mergeLeafNodes(child, rightSibling, childIndex);
+            } else if (leftSibling != null) {
+                mergeLeafNodes(leftSibling, child, childIndex - 1);
+            }
+        }
+
+        private void handleInternalUnderflow(int childIndex) {
+            InternalNode child = (InternalNode) children.get(childIndex);
+            InternalNode leftSibling = childIndex > 0 ? (InternalNode) children.get(childIndex - 1) : null;
+            InternalNode rightSibling = childIndex < children.size() - 1 ? (InternalNode) children.get(childIndex + 1)
+                    : null;
+
+            // Try to borrow from right sibling first
+            if (rightSibling != null && rightSibling.keys.size() > (order - 1) / 2) {
+                // Move parent key down to child
+                child.keys.add(keys.get(childIndex));
+                // Move first key from right sibling up to parent
+                keys.set(childIndex, rightSibling.keys.remove(0));
+                // Move first child from right sibling to child's last position
+                child.children.add(rightSibling.children.remove(0));
+            }
+            // Try to borrow from left sibling
+            else if (leftSibling != null && leftSibling.keys.size() > (order - 1) / 2) {
+                // Move parent key down to child
+                child.keys.add(0, keys.get(childIndex - 1));
+                // Move last key from left sibling up to parent
+                keys.set(childIndex - 1, leftSibling.keys.remove(leftSibling.keys.size() - 1));
+                // Move last child from left sibling to child's first position
+                child.children.add(0, leftSibling.children.remove(leftSibling.children.size() - 1));
+            }
+            // Merge with a sibling
+            else if (rightSibling != null) {
+                mergeInternalNodes(child, rightSibling, childIndex);
+            } else if (leftSibling != null) {
+                mergeInternalNodes(leftSibling, child, childIndex - 1);
+            }
+        }
+
+        private void mergeLeafNodes(LeafNode left, LeafNode right, int keyIndex) {
+            // Move all keys and values from right to left
+            left.keys.addAll(right.keys);
+            left.values.addAll(right.values);
+            // Update next pointers
+            left.next = right.next;
+            // Remove the separated key and right node
+            keys.remove(keyIndex);
+            children.remove(keyIndex + 1);
+        }
+
+        private void mergeInternalNodes(InternalNode left, InternalNode right, int keyIndex) {
+            // Add the parent key to the left node
+            left.keys.add(keys.remove(keyIndex));
+            // Move all keys and children from right to left
+            left.keys.addAll(right.keys);
+            left.children.addAll(right.children);
+            // Remove the right node
+            children.remove(keyIndex + 1);
+        }
+
         Node split() {
             int mid = keys.size() / 2;
             InternalNode newNode = new InternalNode();
@@ -252,6 +399,17 @@ public class BPlusTree<K extends Number, V> {
             }
 
             return null;
+        }
+
+        @Override
+        Node removeKey(K key) {
+            int index = keys.indexOf(key);
+            if (index != -1) {
+                keys.remove(index);
+                values.remove(index);
+                return keys.isEmpty() ? null : this;
+            }
+            return this;
         }
 
         private int findInsertionPoint(K key) {
