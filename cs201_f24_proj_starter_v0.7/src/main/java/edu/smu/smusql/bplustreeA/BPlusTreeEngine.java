@@ -14,7 +14,7 @@ import edu.smu.smusql.parser.nodes.*;
 public class BPlusTreeEngine {
 
     private Map<String, BPlusTreeTable> database;
-    private Map<String, BPlusTree<Integer, Integer>> indexDatabase;
+    private Map<String, BPlusTree<Number, Integer>> indexDatabase;
 
     private <T> T retrieveTable(Map<String, T> database, String tableName) {
 
@@ -23,11 +23,6 @@ public class BPlusTreeEngine {
         }
 
         return database.get(tableName);
-    }
-
-    private void insertIndexTable(String tableName, Integer index, Integer primaryKey) {
-        BPlusTree<Integer, Integer> indexTree = retrieveTable(indexDatabase, tableName);
-        indexTree.insert(index, primaryKey);
     }
 
     private List<Integer> filterIndexes(String tableName, ConditionNode node) {
@@ -88,25 +83,43 @@ public class BPlusTreeEngine {
             return filterKeysByOperator(allKeys, value, operator);
         }
 
-        Object value;
+        Number value = convertToNumber(getValueFromLiteralNode(literalNode));
+
+        String indexTableName = Constants.getIndexTableName(tableName, columnName);
+        BPlusTree<Number, Integer> indexTree = retrieveTable(indexDatabase, indexTableName);
+
+        return evaluateCondition(indexTree, value, operator);
+    }
+
+    private Object getValueFromLiteralNode(LiteralNode literalNode) {
         switch (literalNode.getType()) {
             case STRING:
-                value = literalNode.getStringValue();
-                break;
+                return literalNode.getStringValue();
             case NUMBER:
-                value = literalNode.getIntegerValue();
-                break;
+                return literalNode.getIntegerValue();
             case FLOAT:
-                value = literalNode.getFloatValue();
-                break;
+                return literalNode.getFloatValue();
             default:
                 throw new IllegalStateException("Unexpected LiteralNodeType: " + literalNode.getType());
         }
+    }
 
-        String indexTableName = Constants.getIndexTableName(tableName, columnName);
-        BPlusTree<Integer, Integer> indexTree = retrieveTable(indexDatabase, indexTableName);
+    private Number convertToNumber(Object obj) {
+        if (obj instanceof String) {
+            return obj.hashCode();
+        }
 
-        return evaluateCondition(indexTree, value.hashCode(), operator);
+        else if (obj instanceof Integer) {
+            return (Integer) obj;
+        }
+
+        else if (obj instanceof Float) {
+            return (Float) obj;
+        }
+
+        else {
+            throw new IllegalArgumentException("Received an unsupported object: " + obj.toString());
+        }
     }
 
     private List<Integer> filterKeysByOperator(List<Integer> keys, Integer value, String operator) {
@@ -130,24 +143,24 @@ public class BPlusTreeEngine {
                 .collect(Collectors.toList());
     }
 
-    private List<Integer> evaluateCondition(BPlusTree<Integer, Integer> indexTree, Integer value, String operator) {
+    private List<Integer> evaluateCondition(BPlusTree<Number, Integer> indexTree, Number value, String operator) {
         switch (operator) {
             case "=":
                 return indexTree.search(value);
             case "!=":
                 // TODO: This can be optimized
                 // Retrieve all values and filter out the ones equal to the given value
-                List<Integer> allValues = indexTree.rangeSearch(Integer.MIN_VALUE, Integer.MAX_VALUE);
+                List<Integer> allValues = indexTree.rangeSearch(Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY);
                 allValues.removeAll(indexTree.search(value));
                 return allValues;
             case "<":
-                return indexTree.rangeSearch(Integer.MIN_VALUE, value - 1);
+                return indexTree.rangeSearch(Double.NEGATIVE_INFINITY, value.doubleValue() - 1);
             case "<=":
-                return indexTree.rangeSearch(Integer.MIN_VALUE, value);
+                return indexTree.rangeSearch(Double.NEGATIVE_INFINITY, value.doubleValue());
             case ">":
-                return indexTree.rangeSearch(value + 1, Integer.MAX_VALUE);
+                return indexTree.rangeSearch(value.doubleValue() + 1, Double.POSITIVE_INFINITY);
             case ">=":
-                return indexTree.rangeSearch(value, Integer.MAX_VALUE);
+                return indexTree.rangeSearch(value.doubleValue(), Double.POSITIVE_INFINITY);
             default:
                 throw new RuntimeException("Unsupported operator: " + operator);
         }
@@ -271,7 +284,7 @@ public class BPlusTreeEngine {
          * Create Indexing Trees with column fields as Key and PrimaryKey as Value
          */
         for (String col : columns) {
-            BPlusTree<Integer, Integer> indexTree = new BPlusTree<>(Constants.B_PLUS_TREE_ORDER);
+            BPlusTree<Number, Integer> indexTree = new BPlusTree<>(Constants.B_PLUS_TREE_ORDER);
             String indexTableName = Constants.getIndexTableName(tableName, col);
             indexDatabase.put(indexTableName, indexTree);
 
@@ -314,27 +327,14 @@ public class BPlusTreeEngine {
         Map<String, Object> rowData = new HashMap<>();
 
         for (int i = 0; i < columns.size(); i++) {
-
+            String column = columns.get(i);
+            String indexTableName = Constants.getIndexTableName(tableName, column);
             LiteralNode literalNode = values.get(i);
-            Object value;
-            switch (literalNode.getType()) {
-                case STRING:
-                    value = literalNode.getStringValue();
-                    break;
-                case NUMBER:
-                    value = literalNode.getIntegerValue();
-                    break;
-                case FLOAT:
-                    value = literalNode.getFloatValue();
-                    break;
-                default:
-                    throw new IllegalStateException("Unexpected LiteralNodeType: " + literalNode.getType());
-            }
 
-            rowData.put(columns.get(i), value);
-
-            String indexTableName = Constants.getIndexTableName(tableName, columns.get(i));
-            insertIndexTable(indexTableName, value.hashCode(), primaryKey);
+            Object value = getValueFromLiteralNode(literalNode);
+            rowData.put(column, value);
+            BPlusTree<Number, Integer> tree = indexDatabase.get(indexTableName);
+            tree.insert(convertToNumber(value), primaryKey);
         }
 
         // Get the table

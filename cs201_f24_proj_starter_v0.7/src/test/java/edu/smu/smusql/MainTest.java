@@ -29,15 +29,15 @@ public class MainTest {
 
     @Test
     public void testInsertData() {
-        // createTables();
+        createTables();
         assertEquals("1 row inserted successfully", dbEngine.executeSQL("INSERT INTO users VALUES (1, 'Alice', 30, 'New York')"));
-        assertEquals("1 row inserted successfully", dbEngine.executeSQL("INSERT INTO products VALUES (1, 'Laptop', 999.99, 'Electronics')"));
+        assertEquals("1 row inserted successfully", dbEngine.executeSQL("INSERT INTO products VALUES (1, 'Laptop', 10.99, 'Electronics')"));
         assertEquals("1 row inserted successfully", dbEngine.executeSQL("INSERT INTO orders VALUES (1, 1, 1, 2)"));
     }
 
     @Test
     public void testSelectData() {
-        // createTables();
+        createTables();
         dbEngine.executeSQL("INSERT INTO users VALUES (2, 'Bob', 25, 'Los Angeles')");
         assertEquals("name\tage\tcity\nBob\t25\tLos Angeles", dbEngine.executeSQL("SELECT * FROM users WHERE id = 2"));
     }
@@ -60,6 +60,7 @@ public class MainTest {
     public void testComplexSelectQuery() {
         createTables();
         dbEngine.executeSQL("INSERT INTO products VALUES (4, 'Tablet', 200.00, 'Electronics')");
+        dbEngine.executeSQL("INSERT INTO products VALUES (3, 'Tablet', 20.99, 'Electronics')");
         dbEngine.executeSQL("INSERT INTO products VALUES (3, 'Tablet', 199.99, 'Electronics')");
         dbEngine.executeSQL("INSERT INTO products VALUES (2, 'Phone', 200.01, 'Electronics')");
         assertEquals("name\tprice\tcategory\nPhone\t200.01\tElectronics\t\nTablet\t200.0\tElectronics",
@@ -68,8 +69,8 @@ public class MainTest {
 
     @Test
     public void testComplexUpdateQuery() {
-        dbEngine.executeSQL("INSERT INTO products VALUES (4, 'TV', 799.99, 'Electronics')");
-        assertEquals("Record updated successfully.", dbEngine.executeSQL("UPDATE products SET price = 749.99 WHERE category = 'Electronics'"));
+        dbEngine.executeSQL("INSERT INTO products VALUES (4, 'TV', 20.99, 'Electronics')");
+        assertEquals("Record updated successfully.", dbEngine.executeSQL("UPDATE products SET price = 30.99 WHERE category = 'Electronics'"));
         assertEquals("[{id=4, name=TV, price=749.99, category=Electronics}]",
                 dbEngine.executeSQL("SELECT * FROM products WHERE id = 4"));
     }

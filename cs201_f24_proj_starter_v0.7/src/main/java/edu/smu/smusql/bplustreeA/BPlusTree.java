@@ -3,7 +3,7 @@ package edu.smu.smusql.bplustreeA;
 import java.util.ArrayList;
 import java.util.List;
 
-public class BPlusTree<K extends Comparable<K>, V> {
+public class BPlusTree<K extends Number, V> {
 
     public static class Range<K> {
         private K start;
@@ -24,15 +24,17 @@ public class BPlusTree<K extends Comparable<K>, V> {
     }
 
     private Node root;
+    private LeafNode firstLeaf;
     private int order;
     private int size;
-    private LeafNode firstLeaf;
+    private NumberComparator comparator;
 
     public BPlusTree(int order) {
         this.order = order;
         this.root = new LeafNode();
         this.firstLeaf = (LeafNode) root;
         this.size = 0;
+        this.comparator = new NumberComparator();
     }
 
     public List<V> getAllValues() {
@@ -150,7 +152,7 @@ public class BPlusTree<K extends Comparable<K>, V> {
 
         private int findChildIndex(K key) {
             int index = 0;
-            while (index < keys.size() && key.compareTo(keys.get(index)) >= 0) {
+            while (index < keys.size() && comparator.compare(key, keys.get(index)) >= 0) {
                 index++;
             }
             return index;
@@ -254,7 +256,7 @@ public class BPlusTree<K extends Comparable<K>, V> {
 
         private int findInsertionPoint(K key) {
             int index = 0;
-            while (index < keys.size() && key.compareTo(keys.get(index)) > 0) {
+            while (index < keys.size() && comparator.compare(key, keys.get(index)) > 0) {
                 index++;
             }
             return index;
@@ -274,7 +276,7 @@ public class BPlusTree<K extends Comparable<K>, V> {
             while (currentNode != null) {
                 for (int i = 0; i < currentNode.keys.size(); i++) {
                     K key = currentNode.keys.get(i);
-                    if (key.compareTo(startKey) >= 0 && key.compareTo(endKey) <= 0) {
+                    if (comparator.compare(key, startKey) >= 0 && comparator.compare(key, endKey) <= 0) {
                         result.addAll(currentNode.values.get(i));
                         started = true;
                     } else if (started) {
