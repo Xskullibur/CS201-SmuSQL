@@ -5,9 +5,11 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 import edu.smu.smusql.Constants;
+import edu.smu.smusql.bplustreeA.helper.Range;
 import edu.smu.smusql.parser.*;
 import edu.smu.smusql.parser.nodes.*;
 
@@ -178,9 +180,9 @@ public class BPlusTreeEngine {
         }
     }
 
-    private List<BPlusTree.Range<Integer>> groupKeysIntoRanges(List<Integer> keys) {
+    private List<Range<Integer>> groupKeysIntoRanges(List<Integer> keys) {
 
-        List<BPlusTree.Range<Integer>> ranges = new ArrayList<>();
+        List<Range<Integer>> ranges = new ArrayList<>();
 
         if (keys.isEmpty()) {
             return ranges;
@@ -195,26 +197,33 @@ public class BPlusTreeEngine {
             if (current.equals(end + 1)) {
                 end = current;
             } else {
-                ranges.add(new BPlusTree.Range<>(start, end));
+                ranges.add(new Range<>(start, end));
                 start = current;
                 end = start;
             }
         }
-        ranges.add(new BPlusTree.Range<>(start, end));
+        ranges.add(new Range<>(start, end));
 
         return ranges;
     }
 
-    private String formatSelectResults(List<Map<String, Object>> rows, List<String> columns) {
+    private String formatSelectResults(Map<Integer, Map<String, Object>> rows, List<String> columns) {
         StringBuilder sb = new StringBuilder();
 
         // Header (column names)
-        sb.append(String.join("\t", columns)).append("\n");
+        sb.append("id\t").append(String.join("\t", columns)).append("\n");
 
         // Rows data
-        for (Map<String, Object> row : rows) {
+        for (Map.Entry<Integer, Map<String, Object>> entry : rows.entrySet()) {
+            
+            Integer id = entry.getKey();
+            Map<String, Object> row = entry.getValue();
+            
             if (row == null)
                 continue; // Skip null rows
+
+            sb.append(id).append("\t");
+
             for (String column : columns) {
                 Object value = row.get(column);
                 sb.append(value != null ? value.toString() : "NULL").append("\t");
@@ -297,14 +306,20 @@ public class BPlusTreeEngine {
         Integer primaryKey = node.getPrimaryKey().getIntegerValue();
         List<LiteralNode> values = node.getValues().stream()
                 .map(LiteralNode.class::cast)
-                .collect(Collectors.toList());
+                .toList();
 
         // Retrieve Table Information
         BPlusTreeTable table = retrieveTable(database, tableName);
+        BPlusTree<Integer, Map<String, Object>> rows = table.getRows();
         List<String> columns = table.getColumns();
 
         if (values.size() != columns.size()) {
             throw new RuntimeException("ERROR: Column count does not match value count");
+        }
+
+        // Search database for existing primary key
+        if (rows.search(primaryKey) != null) {
+            return "0 row inserted, primary key already exists";
         }
 
         // Populate inserted table values
@@ -322,25 +337,28 @@ public class BPlusTreeEngine {
         }
 
         // Get the table
-        BPlusTree<Integer, Map<String, Object>> rows = table.getRows();
         rows.insert(primaryKey, rowData);
 
         return "1 row inserted successfully";
     }
 
-    private List<Map<String, Object>> retrieveFilteredRows(List<Integer> filteredKeys,
+    private Map<Integer, Map<String, Object>> retrieveFilteredRows(List<Integer> filteredKeys,
             BPlusTree<Integer, Map<String, Object>> rows) {
-
+    
         // Group keys into ranges
-        List<BPlusTree.Range<Integer>> ranges = groupKeysIntoRanges(filteredKeys);
-
+        List<Range<Integer>> ranges = groupKeysIntoRanges(filteredKeys);
+    
         // Retrieve filtered Rows
-        List<Map<String, Object>> fitleredRows = new ArrayList<>();
-
-        for (BPlusTree.Range<Integer> range : ranges) {
-            fitleredRows.addAll(rows.rangeSearch(range.getStart(), range.getEnd()));
+        Map<Integer, Map<String, Object>> filteredRows = new HashMap<>();
+    
+        for (Range<Integer> range : ranges) {
+            List<Map<String, Object>> rangeRows = rows.rangeSearch(range.getStart(), range.getEnd());
+            for (int i = 0; i < rangeRows.size(); i++) {
+                Integer key = filteredKeys.get(filteredKeys.indexOf(range.getStart()) + i);
+                filteredRows.put(key, rangeRows.get(i));
+            }
         }
-        return fitleredRows;
+        return filteredRows;
     }
 
     public String select(SelectNode node) {
@@ -355,14 +373,14 @@ public class BPlusTreeEngine {
         List<String> columns = table.getColumns();
 
         // Handle SELECT * Query
-        if (whereClause == null && node.getColumns().get(0) == "*") {
-            return formatSelectResults(rows.getAllValues(), columns);
+        if (whereClause == null && Objects.equals(node.getColumns().get(0), "*")) {
+            return formatSelectResults(rows.getAllKeyValues(), columns);
         }
 
         // Get primary keys based on whereClause
         List<Integer> filteredKeys = filterIndexes(tableName, whereClause);
         // Get rows using filteredKeys
-        List<Map<String, Object>> fitleredRows = retrieveFilteredRows(filteredKeys, rows);
+        Map<Integer, Map<String, Object>> fitleredRows = retrieveFilteredRows(filteredKeys, rows);
 
         // Format and return output
         return formatSelectResults(fitleredRows, columns);
@@ -378,16 +396,37 @@ public class BPlusTreeEngine {
         BPlusTreeTable table = retrieveTable(database, tableName);
         BPlusTree<Integer, Map<String, Object>> rows = table.getRows();
 
+        if (rows.getSize() == 0) {
+            return "0 row(s) deleted, no rows found";
+        }
+
         // Get primary keys based on whereClause
         List<Integer> filteredKeys = filterIndexes(tableName, whereClause);
         // Get rows using filteredKeys
-        List<Map<String, Object>> fitleredRows = retrieveFilteredRows(filteredKeys, rows);
+        Map<Integer, Map<String, Object>> fitleredRows = retrieveFilteredRows(filteredKeys, rows);
+
+        if (fitleredRows.isEmpty()) {
+            return "0 row(s) deleted, not found";
+        }
 
         // Remove entries from the index database
-        for (Map<String,Object> rowData : fitleredRows) {
-            for (Map.Entry<String, Object> map : rowData.entrySet()) {
-                String indexTableName = Constants.getIndexTableName(tableName, map.getKey());
-                removeIndexEntry(indexTableName, convertToNumber(map.getValue()));
+        /**
+         * IndexDatabase: 
+         * - Key: Columns
+         * - Value: PrimaryKey
+         */
+        for (Map.Entry<Integer, Map<String, Object>> row : fitleredRows.entrySet()) {
+            
+            Integer rowValue = row.getKey();
+            Map<String, Object> rowData = row.getValue();
+
+            for (Map.Entry<String, Object> column : rowData.entrySet()) {
+
+                String columnName = column.getKey();
+                Number columnValue = convertToNumber(column.getValue());
+
+                String indexTableName = Constants.getIndexTableName(tableName, columnName);
+                removeIndexEntry(indexTableName, columnValue, rowValue);
             }
         }
 
@@ -398,13 +437,13 @@ public class BPlusTreeEngine {
         return filteredKeys.size() + " row(s) deleted successfully";
     }
 
-    private void removeIndexEntry(String indexTableName, Object value) {
+    private void removeIndexEntry(String indexTableName, Object value, Integer key) {
         if (value instanceof String) {
-            indexDatabase.get(indexTableName).removeKey(((String) value).hashCode());
+            indexDatabase.get(indexTableName).removeValue(((String) value).hashCode(), key);
         } else if (value instanceof Integer) {
-            indexDatabase.get(indexTableName).removeKey((Integer) value);
+            indexDatabase.get(indexTableName).removeValue((Integer) value, key);
         } else if (value instanceof Float) {
-            indexDatabase.get(indexTableName).removeKey((Float) value);
+            indexDatabase.get(indexTableName).removeValue((Float) value, key);
         } else {
             throw new IllegalStateException("Unexpected value type for removal: " + value.getClass());
         }

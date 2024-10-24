@@ -1,33 +1,17 @@
 package edu.smu.smusql.bplustreeA;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class BPlusTree<K extends Number, V> {
 
-    public static class Range<K> {
-        private K start;
-        private K end;
-
-        public Range(K start, K end) {
-            this.start = start;
-            this.end = end;
-        }
-
-        public K getStart() {
-            return start;
-        }
-
-        public K getEnd() {
-            return end;
-        }
-    }
-
+    private final int order;
+    private final NumberComparator comparator;
     private Node root;
     private LeafNode firstLeaf;
-    private int order;
     private int size;
-    private NumberComparator comparator;
 
     public BPlusTree(int order) {
         this.order = order;
@@ -63,23 +47,26 @@ public class BPlusTree<K extends Number, V> {
         return allKeys;
     }
 
-    // Insert a key-value pair into the B+ tree
-    public void insert(K key, V value) {
-        Node newNode = root.insert(key, value); // Insert into the root node
-        if (newNode != null) { // If the root was split
-            InternalNode newRoot = new InternalNode(); // Create a new root
-            newRoot.keys.add(newNode.getFirstLeafKey()); // Add the first key of the new node to the new root
-            newRoot.children.add(root); // Add the old root as the first child
-            newRoot.children.add(newNode); // Add the new node as the second child
-            root = newRoot; // Update the root
+    /**
+     * For Main Tree Retrieval
+     * 
+     * @return
+     */
+    public Map<K, V> getAllKeyValues() {
+        Map<K, V> allKeys = new HashMap<>();
+        LeafNode current = firstLeaf;
+
+        while (current != null) {
+
+            for (int i = 0; i < current.keys.size(); i++) {
+                K key = current.keys.get(i);
+                V value = current.values.get(i).get(0);
+                allKeys.put(key, value);
+            }
+
+            current = current.next;
         }
-        size++;
-    }
-
-    // Search for a value by key in the B+ tree
-    public List<V> search(K key) {
-
-        return root.search(key);
+        return allKeys;
     }
 
     public List<V> rangeSearch(K startKey, K endKey) {
@@ -110,24 +97,63 @@ public class BPlusTree<K extends Number, V> {
         }
     }
 
+    // Search for a value by key in the B+ tree
+    public List<V> search(K key) {
+
+        return root.search(key);
+    }
+
     public void removeKey(K key) {
         root = root.removeKey(key);
         size--;
 
-        // If root is an internal node with no keys, make its only child the new root
-        if (root instanceof InternalNode && root.keys.isEmpty() && ((InternalNode) root).children.size() == 1) {
+        // If root is an internal node with no keys and only one child, make its child the new root
+        if (root instanceof InternalNode && root.keys.isEmpty() && 
+            ((InternalNode) root).children.size() == 1) {
             root = ((InternalNode) root).children.get(0);
         }
 
-        // If the root is null, recreate the default root
-        if (root == null) {
+        // If the root is null or empty, create a new empty root
+        if (root == null || root.keys.isEmpty()) {
+            root = new LeafNode();
+            firstLeaf = (LeafNode) root;
+        }
+    }
+
+    // Insert a key-value pair into the B+ tree
+    public void insert(K key, V value) {
+        Node newNode = root.insert(key, value); // Insert into the root node
+        if (newNode != null) { // If the root was split
+            InternalNode newRoot = new InternalNode(); // Create a new root
+            newRoot.keys.add(newNode.getFirstLeafKey()); // Add the first key of the new node to the new root
+            newRoot.children.add(root); // Add the old root as the first child
+            newRoot.children.add(newNode); // Add the new node as the second child
+            root = newRoot; // Update the root
+        }
+        size++;
+    }
+
+    public Node removeValue(K key, V value) {
+        Node result = root.removeValue(key, value);
+        size--;
+
+        // If root is an internal node with no keys and only one child, make its child the new root
+        if (root instanceof InternalNode && root.keys.isEmpty() && 
+            ((InternalNode) root).children.size() == 1) {
+            root = ((InternalNode) root).children.get(0);
+        }
+
+        // If the root is null or empty, create a new empty root
+        if (root == null || root.keys.isEmpty()) {
             root = new LeafNode();
             firstLeaf = (LeafNode) root;
         }
 
+        return result;
     }
 
     private abstract class Node {
+
         List<K> keys;
 
         abstract List<V> search(K key);
@@ -145,23 +171,17 @@ public class BPlusTree<K extends Number, V> {
         abstract List<K> getKeys();
 
         abstract Node removeKey(K key);
+
+        abstract Node removeValue(K key, V value);
     }
 
     private class InternalNode extends Node {
+
         List<Node> children;
 
         InternalNode() {
             this.keys = new ArrayList<>();
             this.children = new ArrayList<>();
-        }
-
-        @Override
-        List<V> getAllChildren() {
-            List<V> allValues = new ArrayList<>();
-            for (Node child : children) {
-                allValues.addAll(child.getAllChildren());
-            }
-            return allValues;
         }
 
         @Override
@@ -185,18 +205,23 @@ public class BPlusTree<K extends Number, V> {
             return null;
         }
 
-        private int findChildIndex(K key) {
-            int index = 0;
-            while (index < keys.size() && comparator.compare(key, keys.get(index)) >= 0) {
-                index++;
-            }
-            return index;
-        }
-
         private void insertKeyAndChild(K key, Node child) {
             int index = findChildIndex(key);
             keys.add(index, key);
             children.add(index + 1, child);
+        }
+
+        Node split() {
+            int mid = keys.size() / 2;
+            InternalNode newNode = new InternalNode();
+
+            newNode.keys = new ArrayList<>(keys.subList(mid + 1, keys.size()));
+            newNode.children = new ArrayList<>(children.subList(mid + 1, children.size()));
+
+            keys = new ArrayList<>(keys.subList(0, mid));
+            children = new ArrayList<>(children.subList(0, mid + 1));
+
+            return newNode;
         }
 
         @Override
@@ -217,6 +242,15 @@ public class BPlusTree<K extends Number, V> {
         }
 
         @Override
+        List<V> getAllChildren() {
+            List<V> allValues = new ArrayList<>();
+            for (Node child : children) {
+                allValues.addAll(child.getAllChildren());
+            }
+            return allValues;
+        }
+
+        @Override
         List<K> getKeys() {
             List<K> nodeKeys = new ArrayList<>();
             for (Node child : children) {
@@ -231,56 +265,102 @@ public class BPlusTree<K extends Number, V> {
             Node child = children.get(childIndex);
             Node result = child.removeKey(key);
 
-            // If child was deleted and this node has only one child
-            if (result == null && children.size() <= 1) {
-                return null;
+            // Handle case where child becomes empty
+            if (result == null) {
+                if (children.size() <= 1) {
+                    return null;
+                }
+                keys.remove(childIndex > 0 ? childIndex - 1 : 0);
+                children.remove(childIndex);
+                
+                // Update the key if we removed a middle child
+                if (childIndex > 0 && childIndex < children.size()) {
+                    keys.set(childIndex - 1, children.get(childIndex).getFirstLeafKey());
+                }
+            } else if (childIndex > 0) {
+                // Update the separator key
+                keys.set(childIndex - 1, result.getFirstLeafKey());
             }
 
-            if (childIndex > 0 && childIndex < children.size() && child == children.get(childIndex)) {
-                // Only update the key if the child node still has keys
-                if (!child.keys.isEmpty()) {
-                    keys.set(childIndex - 1, child.getFirstLeafKey());
-                } else {
-                    // If the child has no keys, remove the corresponding key and child
-                    keys.remove(childIndex - 1);
-                    children.remove(childIndex);
-                }
-            }
-        
-            // Handle underflow by merging or redistributing
-            if (child instanceof LeafNode && !child.keys.isEmpty() && child.keys.size() < (order - 1) / 2) {
+            // Handle underflow
+            if (result instanceof LeafNode && !result.keys.isEmpty() &&
+                result.keys.size() < (order - 1) / 2) {
                 handleLeafUnderflow(childIndex);
-            } else if (child instanceof InternalNode && !child.keys.isEmpty() && child.keys.size() < (order - 1) / 2) {
+            } else if (result instanceof InternalNode && !result.keys.isEmpty() &&
+                     result.keys.size() < (order - 1) / 2) {
                 handleInternalUnderflow(childIndex);
             }
-            
+
+            return this;
+        }
+
+        @Override
+        Node removeValue(K key, V value) {
+            int childIndex = findChildIndex(key);
+            Node child = children.get(childIndex);
+            Node result = child.removeValue(key, value);
+
+            // Handle case where child becomes empty
+            if (result == null) {
+                if (children.size() <= 1) {
+                    return null;
+                }
+                keys.remove(childIndex > 0 ? childIndex - 1 : 0);
+                children.remove(childIndex);
+                
+                // Update the key if we removed a middle child
+                if (childIndex > 0 && childIndex < children.size()) {
+                    keys.set(childIndex - 1, children.get(childIndex).getFirstLeafKey());
+                }
+            } else if (childIndex > 0) {
+                // Update the separator key
+                keys.set(childIndex - 1, result.getFirstLeafKey());
+            }
+
+            // Handle underflow
+            if (result instanceof LeafNode && !result.keys.isEmpty() &&
+                result.keys.size() < (order - 1) / 2) {
+                handleLeafUnderflow(childIndex);
+            } else if (result instanceof InternalNode && !result.keys.isEmpty() &&
+                     result.keys.size() < (order - 1) / 2) {
+                handleInternalUnderflow(childIndex);
+            }
+
             return this;
         }
 
         private void handleLeafUnderflow(int childIndex) {
             LeafNode child = (LeafNode) children.get(childIndex);
-            LeafNode leftSibling = childIndex > 0 ? (LeafNode) children.get(childIndex - 1) : null;
-            LeafNode rightSibling = childIndex < children.size() - 1 ? (LeafNode) children.get(childIndex + 1) : null;
+            
+            // Only proceed if the child has keys
+            if (child.keys.isEmpty()) {
+                return;
+            }
 
-            // Try to borrow from right sibling first
+            LeafNode leftSibling = childIndex > 0 ? (LeafNode) children.get(childIndex - 1) : null;
+            LeafNode rightSibling = childIndex < children.size() - 1 ? 
+                (LeafNode) children.get(childIndex + 1) : null;
+
+            // Try to borrow from siblings first
             if (rightSibling != null && rightSibling.keys.size() > (order - 1) / 2) {
-                // Move first key-value pair from right sibling to child
+                // Borrow from right
                 child.keys.add(rightSibling.keys.remove(0));
                 child.values.add(rightSibling.values.remove(0));
-                keys.set(childIndex, rightSibling.getFirstLeafKey());
-            }
-            // Try to borrow from left sibling
-            else if (leftSibling != null && leftSibling.keys.size() > (order - 1) / 2) {
-                // Move last key-value pair from left sibling to child
+                if (childIndex < keys.size()) {
+                    keys.set(childIndex, rightSibling.getFirstLeafKey());
+                }
+            } else if (leftSibling != null && leftSibling.keys.size() > (order - 1) / 2) {
+                // Borrow from left
                 child.keys.add(0, leftSibling.keys.remove(leftSibling.keys.size() - 1));
                 child.values.add(0, leftSibling.values.remove(leftSibling.values.size() - 1));
                 keys.set(childIndex - 1, child.getFirstLeafKey());
-            }
-            // Merge with a sibling
-            else if (rightSibling != null) {
-                mergeLeafNodes(child, rightSibling, childIndex);
-            } else if (leftSibling != null) {
-                mergeLeafNodes(leftSibling, child, childIndex - 1);
+            } else {
+                // Merge if borrowing is not possible
+                if (rightSibling != null && !rightSibling.keys.isEmpty()) {
+                    mergeLeafNodes(child, rightSibling, childIndex);
+                } else if (leftSibling != null && !leftSibling.keys.isEmpty()) {
+                    mergeLeafNodes(leftSibling, child, childIndex - 1);
+                }
             }
         }
 
@@ -317,14 +397,18 @@ public class BPlusTree<K extends Number, V> {
         }
 
         private void mergeLeafNodes(LeafNode left, LeafNode right, int keyIndex) {
-            // Move all keys and values from right to left
-            left.keys.addAll(right.keys);
-            left.values.addAll(right.values);
-            // Update next pointers
-            left.next = right.next;
-            // Remove the separated key and right node
-            keys.remove(keyIndex);
-            children.remove(keyIndex + 1);
+            // Only merge if both nodes have keys
+            if (!left.keys.isEmpty() && !right.keys.isEmpty()) {
+                left.keys.addAll(right.keys);
+                left.values.addAll(right.values);
+                left.next = right.next;
+                
+                // Remove the separator key and the right node
+                if (keyIndex < keys.size()) {
+                    keys.remove(keyIndex);
+                }
+                children.remove(keyIndex + 1);
+            }
         }
 
         private void mergeInternalNodes(InternalNode left, InternalNode right, int keyIndex) {
@@ -337,21 +421,17 @@ public class BPlusTree<K extends Number, V> {
             children.remove(keyIndex + 1);
         }
 
-        Node split() {
-            int mid = keys.size() / 2;
-            InternalNode newNode = new InternalNode();
-
-            newNode.keys = new ArrayList<>(keys.subList(mid + 1, keys.size()));
-            newNode.children = new ArrayList<>(children.subList(mid + 1, children.size()));
-
-            keys = new ArrayList<>(keys.subList(0, mid));
-            children = new ArrayList<>(children.subList(0, mid + 1));
-
-            return newNode;
+        private int findChildIndex(K key) {
+            int index = 0;
+            while (index < keys.size() && comparator.compare(key, keys.get(index)) >= 0) {
+                index++;
+            }
+            return index;
         }
     }
 
     private class LeafNode extends Node {
+
         List<List<V>> values; // List of lists of values for each key
         private LeafNode next; // Pointer to the next leaf node
 
@@ -362,21 +442,12 @@ public class BPlusTree<K extends Number, V> {
         }
 
         @Override
-        List<V> getAllChildren() {
-            List<V> allValues = new ArrayList<>();
-            for (List<V> valueList : values) {
-                allValues.addAll(valueList);
-            }
-            return allValues;
-        }
-
-        @Override
         List<V> search(K key) {
             int index = keys.indexOf(key);
             if (index != -1) {
                 return values.get(index); // Return all values for the given key
             }
-            return new ArrayList<>(); // Return empty list if key not found
+            return null; // Return empty list if key not found
         }
 
         @Override
@@ -401,23 +472,30 @@ public class BPlusTree<K extends Number, V> {
             return null;
         }
 
-        @Override
-        Node removeKey(K key) {
-            int index = keys.indexOf(key);
-            if (index != -1) {
-                keys.remove(index);
-                values.remove(index);
-                return keys.isEmpty() ? null : this;
-            }
-            return this;
-        }
-
         private int findInsertionPoint(K key) {
             int index = 0;
             while (index < keys.size() && comparator.compare(key, keys.get(index)) > 0) {
                 index++;
             }
             return index;
+        }
+
+        Node split() {
+            int mid = keys.size() / 2;
+            LeafNode newNode = new LeafNode();
+
+            // Move half of keys and values to a new node
+            newNode.keys = new ArrayList<>(keys.subList(mid, keys.size()));
+            newNode.values = new ArrayList<>(values.subList(mid, values.size()));
+
+            // Keep the first half of keys and values
+            keys = new ArrayList<>(keys.subList(0, mid));
+            values = new ArrayList<>(values.subList(0, mid));
+
+            // Update pointers
+            newNode.next = this.next;
+            this.next = newNode;
+            return newNode;
         }
 
         @Override
@@ -434,7 +512,8 @@ public class BPlusTree<K extends Number, V> {
             while (currentNode != null) {
                 for (int i = 0; i < currentNode.keys.size(); i++) {
                     K key = currentNode.keys.get(i);
-                    if (comparator.compare(key, startKey) >= 0 && comparator.compare(key, endKey) <= 0) {
+                    if (comparator.compare(key, startKey) >= 0
+                            && comparator.compare(key, endKey) <= 0) {
                         result.addAll(currentNode.values.get(i));
                         started = true;
                     } else if (started) {
@@ -455,26 +534,50 @@ public class BPlusTree<K extends Number, V> {
         }
 
         @Override
+        List<V> getAllChildren() {
+            List<V> allValues = new ArrayList<>();
+            for (List<V> valueList : values) {
+                allValues.addAll(valueList);
+            }
+            return allValues;
+        }
+
+        @Override
         List<K> getKeys() {
             return new ArrayList<>(keys);
         }
 
-        Node split() {
-            int mid = keys.size() / 2;
-            LeafNode newNode = new LeafNode();
+        @Override
+        Node removeKey(K key) {
+            int index = keys.indexOf(key);
+            if (index != -1) {
+                keys.remove(index);
+                values.remove(index);
+                
+                // Return null if this node becomes empty
+                return keys.isEmpty() ? null : this;
+            }
+            return this;
+        }
 
-            // Move half of keys and values to a new node
-            newNode.keys = new ArrayList<>(keys.subList(mid, keys.size()));
-            newNode.values = new ArrayList<>(values.subList(mid, values.size()));
+        @Override
+        Node removeValue(K key, V value) {
+            int index = keys.indexOf(key);
+            if (index != -1) {
+                List<V> valueList = values.get(index);
+                valueList.remove(value);
 
-            // Keep the first half of keys and values
-            keys = new ArrayList<>(keys.subList(0, mid));
-            values = new ArrayList<>(values.subList(0, mid));
+                // If no more values for this key, remove the key entirely
+                if (valueList.isEmpty()) {
+                    keys.remove(index);
+                    values.remove(index);
+                    return keys.isEmpty() ? null : this;
+                }
 
-            // Update pointers
-            newNode.next = this.next;
-            this.next = newNode;
-            return newNode;
+                // Update the values list
+                values.set(index, valueList);
+            }
+            return this;
         }
     }
 }
