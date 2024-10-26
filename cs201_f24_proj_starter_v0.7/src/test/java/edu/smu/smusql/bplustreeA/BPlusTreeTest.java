@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
@@ -40,7 +41,7 @@ public class BPlusTreeTest {
     @Test
     public void testRemovalCausingUnderflow() {
         // Insert enough values to create multiple nodes
-        int[] keys = {5, 10, 15, 20, 25, 30};
+        int[] keys = { 5, 10, 15, 20, 25, 30 };
         for (int key : keys) {
             tree.insert(key, "value" + key);
         }
@@ -59,7 +60,7 @@ public class BPlusTreeTest {
     @Test
     public void testRemovalRequiringRebalancing() {
         // Insert values to create a tree requiring rebalancing
-        int[] keys = {10, 20, 30, 40, 50, 60, 70, 80};
+        int[] keys = { 10, 20, 30, 40, 50, 60, 70, 80 };
         for (int key : keys) {
             tree.insert(key, "value" + key);
         }
@@ -95,7 +96,7 @@ public class BPlusTreeTest {
     @Test
     public void testRemovalRequiringMerge() {
         // Insert values that will require merging nodes
-        int[] keys = {10, 20, 30, 40, 50, 60, 70, 80, 90};
+        int[] keys = { 10, 20, 30, 40, 50, 60, 70, 80, 90 };
         for (int key : keys) {
             tree.insert(key, "value" + key);
         }
@@ -115,7 +116,7 @@ public class BPlusTreeTest {
     @Test
     public void testRemovalOfAllElements() {
         // Insert some values
-        int[] keys = {1, 2, 3, 4, 5};
+        int[] keys = { 1, 2, 3, 4, 5 };
         for (int key : keys) {
             tree.insert(key, "value" + key);
         }
@@ -138,10 +139,10 @@ public class BPlusTreeTest {
         }
 
         // Remove half of them
-         for (int i = 1; i <= 100000; i++) {
-             System.out.println("Removing key: " + i);
-             tree.removeKey(i);
-         }
+        for (int i = 1; i <= 100000; i++) {
+            System.out.println("Removing key: " + i);
+            tree.removeKey(i);
+        }
 
         // Verify tree integrity
         assertEquals(0, tree.getSize());
@@ -152,9 +153,11 @@ public class BPlusTreeTest {
 
     // Helper method to check if a list is sorted
     private boolean isSorted(List<Integer> list) {
-        if (list.size() <= 1) return true;
+        if (list.size() <= 1)
+            return true;
         for (int i = 1; i < list.size(); i++) {
-            if (list.get(i-1) >= list.get(i)) return false;
+            if (list.get(i - 1) >= list.get(i))
+                return false;
         }
         return true;
     }
@@ -162,13 +165,13 @@ public class BPlusTreeTest {
     @Test
     public void testRandomizedRemoval() {
         // Insert values in random order
-        Integer[] keys = {15, 7, 23, 4, 30, 11, 19, 27, 8, 16};
+        Integer[] keys = { 15, 7, 23, 4, 30, 11, 19, 27, 8, 16 };
         for (Integer key : keys) {
             tree.insert(key, "value" + key);
         }
 
         // Remove values in different order
-        Integer[] removalOrder = {7, 23, 11, 27, 15};
+        Integer[] removalOrder = { 7, 23, 11, 27, 15 };
         for (Integer key : removalOrder) {
             tree.removeKey(key);
         }
@@ -214,6 +217,73 @@ public class BPlusTreeTest {
         List<Integer> allKeys = indexTree.getAllKeys();
         assertEquals(1, allKeys.size());
         assertTrue(allKeys.contains(1));
+    }
+
+    @Test
+    public void testUpdate() {
+        BPlusTree<Integer, String> tree = new BPlusTree<>(4);
+
+        // Test main tree update (single value per key)
+        tree.insert(1, "value1");
+        tree.update(1, "newValue1");
+
+        List<String> result = tree.search(1);
+        assertEquals(1, result.size());
+        assertEquals("newValue1", result.get(0));
+
+        // Test updating non-existent key
+        assertThrows(IllegalArgumentException.class, () -> tree.update(999, "value"));
+    }
+
+    @Test
+    public void testUpdateValue() {
+        BPlusTree<Integer, Integer> indexTree = new BPlusTree<>(4);
+
+        // Test index tree update (multiple values per key)
+        indexTree.insert(1, 100); // key 1 represents indexed field, 100 is primary key
+        indexTree.insert(1, 101);
+        indexTree.insert(1, 102);
+
+        // Update specific value
+        indexTree.updateValue(1, 101, 201);
+
+        List<Integer> values = indexTree.search(1);
+        assertEquals(3, values.size());
+        assertTrue(values.contains(100));
+        assertTrue(values.contains(201));
+        assertTrue(values.contains(102));
+        assertFalse(values.contains(101));
+
+        // Test updating non-existent value
+        assertThrows(IllegalArgumentException.class,
+                () -> indexTree.updateValue(1, 999, 888));
+    }
+
+    @Test
+    public void testUpdateKey() {
+        BPlusTree<Integer, String> tree = new BPlusTree<>(4);
+
+        // Insert multiple values for a key
+        tree.insert(1, "value1");
+        tree.insert(1, "value2");
+
+        // Update key
+        tree.updateKey(1, 2);
+
+        // Verify old key is removed
+        List<String> oldValues = tree.search(1);
+        assertTrue(oldValues == null || oldValues.isEmpty());
+
+        // Verify values moved to new key
+        List<String> newValues = tree.search(2);
+        assertEquals(2, newValues.size());
+        assertTrue(newValues.contains("value1"));
+        assertTrue(newValues.contains("value2"));
+
+        // Test updating to existing key
+        tree.insert(3, "value3");
+        assertThrows(IllegalArgumentException.class,
+                () -> tree.updateKey(2, 3));
     }
 
 }

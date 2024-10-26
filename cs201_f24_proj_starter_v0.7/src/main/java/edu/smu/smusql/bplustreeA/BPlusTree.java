@@ -73,19 +73,48 @@ public class BPlusTree<K extends Number, V> {
         return root.rangeSearch(startKey, endKey);
     }
 
+    /**
+     * Updates all values associated with a key
+     * Used primarily for the main tree where each key has one value
+     */
     public void update(K key, V newValue) {
+        List<V> searchResult = search(key);
+        if (searchResult == null || searchResult.isEmpty()) {
+            throw new IllegalArgumentException("Key not found: " + key);
+        }
         root.update(key, newValue);
     }
 
-    public int getSize() {
-        return size; // Return the size of the B+ tree
+    /**
+     * Updates a specific old value to a new value for a given key
+     * Used primarily for index trees where each key can have multiple values
+     */
+    public void updateValue(K key, V oldValue, V newValue) {
+        List<V> searchResult = search(key);
+        if (searchResult == null || searchResult.isEmpty()) {
+            throw new IllegalArgumentException("Key not found: " + key);
+        }
+        if (!searchResult.contains(oldValue)) {
+            throw new IllegalArgumentException("Old value not found for key: " + key);
+        }
+        root.updateValue(key, oldValue, newValue);
     }
 
+    /**
+     * Updates an old key to a new key, maintaining all associated values
+     * Used for updating keys in both main and index trees
+     */
     public void updateKey(K oldKey, K newKey) {
         // First get all values associated with the old key
         List<V> values = search(oldKey);
-        if (values.isEmpty()) {
+        if (values == null || values.isEmpty()) {
             throw new IllegalArgumentException("Key not found: " + oldKey);
+        }
+
+        // Check if new key already exists
+        List<V> existingValues = search(newKey);
+        if (existingValues != null && !existingValues.isEmpty()) {
+            throw new IllegalArgumentException("New key already exists: " + newKey);
         }
 
         // Remove all entries with the old key
@@ -95,6 +124,10 @@ public class BPlusTree<K extends Number, V> {
         for (V value : values) {
             insert(newKey, value);
         }
+    }
+
+    public int getSize() {
+        return size; // Return the size of the B+ tree
     }
 
     // Search for a value by key in the B+ tree
@@ -107,9 +140,10 @@ public class BPlusTree<K extends Number, V> {
         root = root.removeKey(key);
         size--;
 
-        // If root is an internal node with no keys and only one child, make its child the new root
-        if (root instanceof InternalNode && root.keys.isEmpty() && 
-            ((InternalNode) root).children.size() == 1) {
+        // If root is an internal node with no keys and only one child, make its child
+        // the new root
+        if (root instanceof InternalNode && root.keys.isEmpty() &&
+                ((InternalNode) root).children.size() == 1) {
             root = ((InternalNode) root).children.get(0);
         }
 
@@ -137,9 +171,10 @@ public class BPlusTree<K extends Number, V> {
         Node result = root.removeValue(key, value);
         size--;
 
-        // If root is an internal node with no keys and only one child, make its child the new root
-        if (root instanceof InternalNode && root.keys.isEmpty() && 
-            ((InternalNode) root).children.size() == 1) {
+        // If root is an internal node with no keys and only one child, make its child
+        // the new root
+        if (root instanceof InternalNode && root.keys.isEmpty() &&
+                ((InternalNode) root).children.size() == 1) {
             root = ((InternalNode) root).children.get(0);
         }
 
@@ -164,8 +199,6 @@ public class BPlusTree<K extends Number, V> {
 
         abstract List<V> rangeSearch(K startKey, K endKey);
 
-        abstract void update(K key, V newValue);
-
         abstract List<V> getAllChildren();
 
         abstract List<K> getKeys();
@@ -173,6 +206,10 @@ public class BPlusTree<K extends Number, V> {
         abstract Node removeKey(K key);
 
         abstract Node removeValue(K key, V value);
+
+        abstract void update(K key, V newValue);
+
+        abstract void updateValue(K key, V oldValue, V newValue);
     }
 
     private class InternalNode extends Node {
@@ -236,12 +273,6 @@ public class BPlusTree<K extends Number, V> {
         }
 
         @Override
-        void update(K key, V newValue) {
-            int childIndex = findChildIndex(key);
-            children.get(childIndex).update(key, newValue);
-        }
-
-        @Override
         List<V> getAllChildren() {
             List<V> allValues = new ArrayList<>();
             for (Node child : children) {
@@ -272,7 +303,7 @@ public class BPlusTree<K extends Number, V> {
                 }
                 keys.remove(childIndex > 0 ? childIndex - 1 : 0);
                 children.remove(childIndex);
-                
+
                 // Update the key if we removed a middle child
                 if (childIndex > 0 && childIndex < children.size()) {
                     keys.set(childIndex - 1, children.get(childIndex).getFirstLeafKey());
@@ -284,10 +315,10 @@ public class BPlusTree<K extends Number, V> {
 
             // Handle underflow
             if (result instanceof LeafNode && !result.keys.isEmpty() &&
-                result.keys.size() < (order - 1) / 2) {
+                    result.keys.size() < (order - 1) / 2) {
                 handleLeafUnderflow(childIndex);
             } else if (result instanceof InternalNode && !result.keys.isEmpty() &&
-                     result.keys.size() < (order - 1) / 2) {
+                    result.keys.size() < (order - 1) / 2) {
                 handleInternalUnderflow(childIndex);
             }
 
@@ -307,7 +338,7 @@ public class BPlusTree<K extends Number, V> {
                 }
                 keys.remove(childIndex > 0 ? childIndex - 1 : 0);
                 children.remove(childIndex);
-                
+
                 // Update the key if we removed a middle child
                 if (childIndex > 0 && childIndex < children.size()) {
                     keys.set(childIndex - 1, children.get(childIndex).getFirstLeafKey());
@@ -319,27 +350,38 @@ public class BPlusTree<K extends Number, V> {
 
             // Handle underflow
             if (result instanceof LeafNode && !result.keys.isEmpty() &&
-                result.keys.size() < (order - 1) / 2) {
+                    result.keys.size() < (order - 1) / 2) {
                 handleLeafUnderflow(childIndex);
             } else if (result instanceof InternalNode && !result.keys.isEmpty() &&
-                     result.keys.size() < (order - 1) / 2) {
+                    result.keys.size() < (order - 1) / 2) {
                 handleInternalUnderflow(childIndex);
             }
 
             return this;
         }
 
+        @Override
+        void update(K key, V newValue) {
+            int childIndex = findChildIndex(key);
+            children.get(childIndex).update(key, newValue);
+        }
+
+        @Override
+        void updateValue(K key, V oldValue, V newValue) {
+            int childIndex = findChildIndex(key);
+            children.get(childIndex).updateValue(key, oldValue, newValue);
+        }
+
         private void handleLeafUnderflow(int childIndex) {
             LeafNode child = (LeafNode) children.get(childIndex);
-            
+
             // Only proceed if the child has keys
             if (child.keys.isEmpty()) {
                 return;
             }
 
             LeafNode leftSibling = childIndex > 0 ? (LeafNode) children.get(childIndex - 1) : null;
-            LeafNode rightSibling = childIndex < children.size() - 1 ? 
-                (LeafNode) children.get(childIndex + 1) : null;
+            LeafNode rightSibling = childIndex < children.size() - 1 ? (LeafNode) children.get(childIndex + 1) : null;
 
             // Try to borrow from siblings first
             if (rightSibling != null && rightSibling.keys.size() > (order - 1) / 2) {
@@ -402,7 +444,7 @@ public class BPlusTree<K extends Number, V> {
                 left.keys.addAll(right.keys);
                 left.values.addAll(right.values);
                 left.next = right.next;
-                
+
                 // Remove the separator key and the right node
                 if (keyIndex < keys.size()) {
                     keys.remove(keyIndex);
@@ -526,14 +568,6 @@ public class BPlusTree<K extends Number, V> {
         }
 
         @Override
-        void update(K key, V newValue) {
-            int index = keys.indexOf(key);
-            if (index != -1) {
-                values.get(index).set(0, newValue); // Replace first value for simplicity
-            }
-        }
-
-        @Override
         List<V> getAllChildren() {
             List<V> allValues = new ArrayList<>();
             for (List<V> valueList : values) {
@@ -553,7 +587,7 @@ public class BPlusTree<K extends Number, V> {
             if (index != -1) {
                 keys.remove(index);
                 values.remove(index);
-                
+
                 // Return null if this node becomes empty
                 return keys.isEmpty() ? null : this;
             }
@@ -578,6 +612,29 @@ public class BPlusTree<K extends Number, V> {
                 values.set(index, valueList);
             }
             return this;
+        }
+
+        @Override
+        void update(K key, V newValue) {
+            int index = keys.indexOf(key);
+            if (index != -1) {
+                // Create new value list with only the new value
+                List<V> newValueList = new ArrayList<>();
+                newValueList.add(newValue);
+                values.set(index, newValueList);
+            }
+        }
+
+        @Override
+        void updateValue(K key, V oldValue, V newValue) {
+            int index = keys.indexOf(key);
+            if (index != -1) {
+                List<V> valueList = values.get(index);
+                int valueIndex = valueList.indexOf(oldValue);
+                if (valueIndex != -1) {
+                    valueList.set(valueIndex, newValue);
+                }
+            }
         }
     }
 }

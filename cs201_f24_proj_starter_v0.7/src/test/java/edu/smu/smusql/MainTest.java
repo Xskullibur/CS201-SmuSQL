@@ -180,4 +180,37 @@ public class MainTest {
 
         assertEquals("name\tage\tcity\nDavid\t40\tBoston\t\nEve\t28\tSan Francisco", result);
     }
+
+    
+    @Test
+    public void testUpdateMultipleColumns() {
+        createTables();
+        dbEngine.executeSQL("INSERT INTO users VALUES (1, 'Alice', 30, 'New York')");
+        assertEquals("1 row(s) updated successfully",
+                dbEngine.executeSQL("UPDATE users SET age = 31, city = 'Los Angeles' WHERE id = 1"));
+        assertEquals("id\tname\tage\tcity\n" + //
+                "1\tAlice\t31\tLos Angeles", dbEngine.executeSQL("SELECT * FROM users WHERE id = 1"));
+    }
+
+    @Test
+    public void testUpdateWithNoMatchingRows() {
+        createTables();
+        dbEngine.executeSQL("INSERT INTO users VALUES (1, 'Alice', 30, 'New York')");
+        assertEquals("0 row(s) updated, not found",
+                dbEngine.executeSQL("UPDATE users SET age = 31 WHERE id = 999"));
+    }
+
+    @Test
+    public void testUpdateWithComplexCondition() {
+        createTables();
+        dbEngine.executeSQL("INSERT INTO users VALUES (1, 'Alice', 30, 'New York')");
+        dbEngine.executeSQL("INSERT INTO users VALUES (2, 'Bob', 25, 'Los Angeles')");
+        dbEngine.executeSQL("INSERT INTO users VALUES (3, 'Charlie', 35, 'Chicago')");
+        assertEquals("2 row(s) updated successfully",
+                dbEngine.executeSQL("UPDATE users SET age = 40 WHERE age < 30 OR city = 'Chicago'"));
+        assertEquals("id\tname\tage\tcity\n" + //
+                "1\tAlice\t30\tNew York\t\n" + //
+                "2\tBob\t40\tLos Angeles\t\n" + //
+                "3\tCharlie\t40\tChicago", dbEngine.executeSQL("SELECT * FROM users"));
+    }
 }

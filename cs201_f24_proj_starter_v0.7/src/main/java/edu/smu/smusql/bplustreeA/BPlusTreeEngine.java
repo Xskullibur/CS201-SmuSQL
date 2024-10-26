@@ -215,10 +215,10 @@ public class BPlusTreeEngine {
 
         // Rows data
         for (Map.Entry<Integer, Map<String, Object>> entry : rows.entrySet()) {
-            
+
             Integer id = entry.getKey();
             Map<String, Object> row = entry.getValue();
-            
+
             if (row == null)
                 continue; // Skip null rows
 
@@ -344,13 +344,13 @@ public class BPlusTreeEngine {
 
     private Map<Integer, Map<String, Object>> retrieveFilteredRows(List<Integer> filteredKeys,
             BPlusTree<Integer, Map<String, Object>> rows) {
-    
+
         // Group keys into ranges
         List<Range<Integer>> ranges = groupKeysIntoRanges(filteredKeys);
-    
+
         // Retrieve filtered Rows
         Map<Integer, Map<String, Object>> filteredRows = new HashMap<>();
-    
+
         for (Range<Integer> range : ranges) {
             List<Map<String, Object>> rangeRows = rows.rangeSearch(range.getStart(), range.getEnd());
             for (int i = 0; i < rangeRows.size(); i++) {
@@ -411,12 +411,12 @@ public class BPlusTreeEngine {
 
         // Remove entries from the index database
         /**
-         * IndexDatabase: 
+         * IndexDatabase:
          * - Key: Columns
          * - Value: PrimaryKey
          */
         for (Map.Entry<Integer, Map<String, Object>> row : fitleredRows.entrySet()) {
-            
+
             Integer rowValue = row.getKey();
             Map<String, Object> rowData = row.getValue();
 
@@ -450,8 +450,64 @@ public class BPlusTreeEngine {
     }
 
     public String update(UpdateNode node) {
-        // TODO
-        return "not implemented";
+
+        // Retrieve query information
+        String tableName = node.getTableName();
+        ConditionNode whereClause = node.getWhereClause();
+        List<AssignmentNode> assignments = node.getAssignments();
+
+        // Retrieve table
+        BPlusTreeTable table = retrieveTable(database, tableName);
+        BPlusTree<Integer, Map<String, Object>> rows = table.getRows();
+
+        if (rows.getSize() == 0) {
+            return "0 row(s) updated, no rows found";
+        }
+
+        // Get primary keys based on whereClause
+        List<Integer> filteredKeys = filterIndexes(tableName, whereClause);
+        // Get rows using filteredKeys
+        Map<Integer, Map<String, Object>> filteredRows = retrieveFilteredRows(filteredKeys, rows);
+
+        if (filteredRows.isEmpty()) {
+            return "0 row(s) updated, not found";
+        }
+
+        // For each row that matches the where clause
+        for (Map.Entry<Integer, Map<String, Object>> row : filteredRows.entrySet()) {
+            Integer primaryKey = row.getKey();
+            Map<String, Object> rowData = row.getValue();
+
+            // Create a new row data with updated values
+            Map<String, Object> updatedRowData = new HashMap<>(rowData);
+
+            // For each assignment node
+            for (AssignmentNode assignment : assignments) {
+
+                String columnName = assignment.getColumn();
+                LiteralNode newValueNode = (LiteralNode) assignment.getValue();
+                Object newValue = getValueFromLiteralNode(newValueNode);
+                Object oldValue = rowData.get(columnName);
+
+                // Update the index tree
+                String indexTableName = Constants.getIndexTableName(tableName, columnName);
+                BPlusTree<Number, Integer> indexTree = indexDatabase.get(indexTableName);
+
+                // Remove old index entry
+                indexTree.removeValue(convertToNumber(oldValue), primaryKey);
+
+                // Insert new index entry
+                indexTree.insert(convertToNumber(newValue), primaryKey);
+
+                // Update the row data
+                updatedRowData.put(columnName, newValue);
+            }
+
+            // Update the main tree
+            rows.update(primaryKey, updatedRowData);
+        }
+
+        return filteredKeys.size() + " row(s) updated successfully";
     }
 
 }
