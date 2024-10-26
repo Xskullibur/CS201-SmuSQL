@@ -27,6 +27,8 @@ public class Main {
                 // long elapsedTime = stopTime - startTime;
                 // double elapsedTimeInSecond = (double) elapsedTime / 1_000_000_000;
                 // System.out.println("Time elapsed: " + elapsedTimeInSecond + " seconds");
+
+                // new evaluation methods for specific SQL commands
                 evaluateInsert();
                 evaluateSelect();
                 // evaluateComplexSelect();
