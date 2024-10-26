@@ -1,22 +1,41 @@
 package edu.smu.smusql.bplustreeA;
 
+import edu.smu.smusql.Constants;
+import edu.smu.smusql.IEngine;
+import edu.smu.smusql.bplustreeA.helper.Range;
+import edu.smu.smusql.parser.AstParser;
+import edu.smu.smusql.parser.Token;
+import edu.smu.smusql.parser.Tokenizer;
+import edu.smu.smusql.parser.nodes.ASTNode;
+import edu.smu.smusql.parser.nodes.AssignmentNode;
+import edu.smu.smusql.parser.nodes.ColumnNode;
+import edu.smu.smusql.parser.nodes.ConditionNode;
+import edu.smu.smusql.parser.nodes.CreateTableNode;
+import edu.smu.smusql.parser.nodes.DeleteNode;
+import edu.smu.smusql.parser.nodes.ExpressionNode;
+import edu.smu.smusql.parser.nodes.InsertNode;
+import edu.smu.smusql.parser.nodes.LiteralNode;
+import edu.smu.smusql.parser.nodes.SelectNode;
+import edu.smu.smusql.parser.nodes.UpdateNode;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
-import edu.smu.smusql.Constants;
-import edu.smu.smusql.bplustreeA.helper.Range;
-import edu.smu.smusql.parser.*;
-import edu.smu.smusql.parser.nodes.*;
-
-public class BPlusTreeEngine {
+public class BPlusTreeEngine implements IEngine {
 
     private Map<String, BPlusTreeTable> database;
     private Map<String, BPlusTree<Number, Integer>> indexDatabase;
+
+    public BPlusTreeEngine() {
+        this.database = new HashMap<>();
+        indexDatabase = new HashMap<>();
+    }
 
     private <T> T retrieveTable(Map<String, T> database, String tableName) {
 
@@ -42,11 +61,14 @@ public class BPlusTreeEngine {
         if (node.getLeft() instanceof ConditionNode && node.getRight() instanceof ConditionNode) {
 
             // Both left and right are ConditionNodes
-            List<Integer> leftResult = evaluateConditionNode(tableName, (ConditionNode) node.getLeft());
-            List<Integer> rightResult = evaluateConditionNode(tableName, (ConditionNode) node.getRight());
+            List<Integer> leftResult = evaluateConditionNode(tableName,
+                (ConditionNode) node.getLeft());
+            List<Integer> rightResult = evaluateConditionNode(tableName,
+                (ConditionNode) node.getRight());
             return combineResults(leftResult, rightResult, node.getOperator());
 
-        } else if (node.getLeft() instanceof ExpressionNode && node.getRight() instanceof ExpressionNode) {
+        } else if (node.getLeft() instanceof ExpressionNode
+            && node.getRight() instanceof ExpressionNode) {
             // Both left and right are ExpressionNodes
             return evaluateSimpleCondition(tableName, node);
         } else {
@@ -69,8 +91,8 @@ public class BPlusTreeEngine {
         // Check if we're searching by primary key
         if (columnName.equals("id")) {
             Integer value = literalNode.getType() == LiteralNode.LiteralNodeType.NUMBER
-                    ? literalNode.getIntegerValue()
-                    : literalNode.getValue().hashCode();
+                ? literalNode.getIntegerValue()
+                : literalNode.getValue().hashCode();
 
             // For primary key searches, return a single-element list
             if (operator.equals("=")) {
@@ -102,59 +124,56 @@ public class BPlusTreeEngine {
             case FLOAT:
                 return literalNode.getFloatValue();
             default:
-                throw new IllegalStateException("Unexpected LiteralNodeType: " + literalNode.getType());
+                throw new IllegalStateException(
+                    "Unexpected LiteralNodeType: " + literalNode.getType());
         }
     }
 
     private Number convertToNumber(Object obj) {
         if (obj instanceof String) {
             return obj.hashCode();
-        }
-
-        else if (obj instanceof Integer) {
+        } else if (obj instanceof Integer) {
             return (Integer) obj;
-        }
-
-        else if (obj instanceof Float) {
+        } else if (obj instanceof Float) {
             return (Float) obj;
-        }
-
-        else {
+        } else {
             throw new IllegalArgumentException("Received an unsupported object: " + obj.toString());
         }
     }
 
     private List<Integer> filterKeysByOperator(List<Integer> keys, Integer value, String operator) {
         return keys.stream()
-                .filter(key -> {
-                    switch (operator) {
-                        case "!=":
-                            return !key.equals(value);
-                        case "<":
-                            return key < value;
-                        case "<=":
-                            return key <= value;
-                        case ">":
-                            return key > value;
-                        case ">=":
-                            return key >= value;
-                        default:
-                            return false;
-                    }
-                })
-                .collect(Collectors.toList());
+            .filter(key -> {
+                switch (operator) {
+                    case "!=":
+                        return !key.equals(value);
+                    case "<":
+                        return key < value;
+                    case "<=":
+                        return key <= value;
+                    case ">":
+                        return key > value;
+                    case ">=":
+                        return key >= value;
+                    default:
+                        return false;
+                }
+            })
+            .collect(Collectors.toList());
     }
 
-    private List<Integer> evaluateCondition(BPlusTree<Number, Integer> indexTree, Number value, String operator) {
+    private List<Integer> evaluateCondition(BPlusTree<Number, Integer> indexTree, Number value,
+        String operator) {
         switch (operator) {
             case "=":
                 return indexTree.search(value);
             case "!=":
-                // TODO: This can be optimized
-                // Retrieve all values and filter out the ones equal to the given value
-                List<Integer> allValues = indexTree.rangeSearch(Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY);
-                allValues.removeAll(indexTree.search(value));
-                return allValues;
+                List<Integer> lessThan = indexTree.rangeSearch(Double.NEGATIVE_INFINITY,
+                    value.doubleValue() - Double.MIN_VALUE);
+                List<Integer> greaterThan = indexTree.rangeSearch(
+                    value.doubleValue() + Double.MIN_VALUE, Double.POSITIVE_INFINITY);
+                lessThan.addAll(greaterThan);
+                return lessThan;
             case "<":
                 return indexTree.rangeSearch(Double.NEGATIVE_INFINITY, value.doubleValue() - 1);
             case "<=":
@@ -207,7 +226,8 @@ public class BPlusTreeEngine {
         return ranges;
     }
 
-    private String formatSelectResults(Map<Integer, Map<String, Object>> rows, List<String> columns) {
+    private String formatSelectResults(Map<Integer, Map<String, Object>> rows,
+        List<String> columns) {
         StringBuilder sb = new StringBuilder();
 
         // Header (column names)
@@ -219,8 +239,9 @@ public class BPlusTreeEngine {
             Integer id = entry.getKey();
             Map<String, Object> row = entry.getValue();
 
-            if (row == null)
+            if (row == null) {
                 continue; // Skip null rows
+            }
 
             sb.append(id).append("\t");
 
@@ -232,11 +253,6 @@ public class BPlusTreeEngine {
         }
 
         return sb.toString().trim(); // Return the formatted string
-    }
-
-    public BPlusTreeEngine() {
-        this.database = new HashMap<>();
-        indexDatabase = new HashMap<>();
     }
 
     public String executeSQL(String query) {
@@ -258,6 +274,49 @@ public class BPlusTreeEngine {
         } else {
             return "Unsupported SQL statement";
         }
+    }
+
+    /**
+     * Clears all data from the database and index database. Used primarily for testing purposes.
+     */
+    public void clearDatabase() {
+        // Clear both main database and index database
+        database.clear();
+        indexDatabase.clear();
+    }
+
+    /**
+     * Clears all data from a specific table and its indexes. Used primarily for testing purposes.
+     *
+     * @param tableName the name of the table to clear
+     * @return String indicating the cleanup was successful
+     * @throws RuntimeException if the table doesn't exist
+     */
+    public String clearTable(String tableName) {
+        // Check if table exists
+        if (!database.containsKey(tableName)) {
+            throw new RuntimeException("ERROR: Table " + tableName + " does not exist");
+        }
+
+        // Get table columns to identify indexes to clear
+        BPlusTreeTable table = database.get(tableName);
+        List<String> columns = table.getColumns();
+
+        // Clear all index trees for this table
+        for (String column : columns) {
+            String indexTableName = Constants.getIndexTableName(tableName, column);
+            indexDatabase.remove(indexTableName);
+
+            // Recreate empty index tree
+            BPlusTree<Number, Integer> indexTree = new BPlusTree<>(Constants.B_PLUS_TREE_ORDER);
+            indexDatabase.put(indexTableName, indexTree);
+        }
+
+        // Clear and recreate main table
+        BPlusTreeTable newTable = new BPlusTreeTable(columns);
+        database.put(tableName, newTable);
+
+        return "Table " + tableName + " cleared successfully";
     }
 
     public String create(CreateTableNode node) {
@@ -293,11 +352,10 @@ public class BPlusTreeEngine {
     /**
      * Inserts a new row into the specified table.
      *
-     * @param node The InsertNode containing the table name and values to be
-     *             inserted.
-     * @return A message indicating the result of the insertion operation.
-     *         Returns "1 row inserted successfully" if the insertion is successful.
-     *         Returns an error message if the specified table does not exist.
+     * @param node The InsertNode containing the table name and values to be inserted.
+     * @return A message indicating the result of the insertion operation. Returns "1 row inserted
+     * successfully" if the insertion is successful. Returns an error message if the specified table
+     * does not exist.
      */
     public String insert(InsertNode node) {
 
@@ -305,8 +363,8 @@ public class BPlusTreeEngine {
         String tableName = node.getTableName();
         Integer primaryKey = node.getPrimaryKey().getIntegerValue();
         List<LiteralNode> values = node.getValues().stream()
-                .map(LiteralNode.class::cast)
-                .toList();
+            .map(LiteralNode.class::cast)
+            .toList();
 
         // Retrieve Table Information
         BPlusTreeTable table = retrieveTable(database, tableName);
@@ -343,7 +401,7 @@ public class BPlusTreeEngine {
     }
 
     private Map<Integer, Map<String, Object>> retrieveFilteredRows(List<Integer> filteredKeys,
-            BPlusTree<Integer, Map<String, Object>> rows) {
+        BPlusTree<Integer, Map<String, Object>> rows) {
 
         // Group keys into ranges
         List<Range<Integer>> ranges = groupKeysIntoRanges(filteredKeys);
@@ -352,7 +410,8 @@ public class BPlusTreeEngine {
         Map<Integer, Map<String, Object>> filteredRows = new HashMap<>();
 
         for (Range<Integer> range : ranges) {
-            List<Map<String, Object>> rangeRows = rows.rangeSearch(range.getStart(), range.getEnd());
+            List<Map<String, Object>> rangeRows = rows.rangeSearch(range.getStart(),
+                range.getEnd());
             for (int i = 0; i < rangeRows.size(); i++) {
                 Integer key = filteredKeys.get(filteredKeys.indexOf(range.getStart()) + i);
                 filteredRows.put(key, rangeRows.get(i));
@@ -445,7 +504,8 @@ public class BPlusTreeEngine {
         } else if (value instanceof Float) {
             indexDatabase.get(indexTableName).removeValue((Float) value, key);
         } else {
-            throw new IllegalStateException("Unexpected value type for removal: " + value.getClass());
+            throw new IllegalStateException(
+                "Unexpected value type for removal: " + value.getClass());
         }
     }
 
