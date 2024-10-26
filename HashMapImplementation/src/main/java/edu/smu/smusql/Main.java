@@ -31,6 +31,7 @@ public class Main {
                 evaluateSelect();
                 // evaluateComplexSelect();
                 // evaluateUpdate();
+                // evaluateComplexUpdate();
                 // evaluateDelete();
                 break;
             }
@@ -120,6 +121,28 @@ public class Main {
     
         // Prepopulate data for updating
         System.out.println("Prepopulating data for UPDATE evaluation...");
+        prepopulateTables(random);
+    
+        long startTime = System.nanoTime();
+        for (int i = 0; i < numberOfUpdates; i++) {
+            updateRandomData(random);
+
+            if (i % 10000 == 0){
+                System.out.println("Processed " + i + " queries...");
+            }
+        }
+        long stopTime = System.nanoTime();
+    
+        double elapsedTimeInSeconds = (stopTime - startTime) / 1_000_000_000.0;
+        System.out.println("Time taken for " + numberOfUpdates + " UPDATE operations: " + elapsedTimeInSeconds + " seconds");
+    }
+
+    public static void evaluateComplexUpdate() {
+        Random random = new Random();
+        int numberOfUpdates = 1000000;
+    
+        // Prepopulate data for updating
+        System.out.println("Prepopulating data for complex UPDATE evaluation...");
         prepopulateTables(random);
     
         long startTime = System.nanoTime();
