@@ -107,7 +107,8 @@ class BPlusTreeEngineTest {
         setupStudentTable();
         String expected = "id\tname\tage\tgpa\tdeans_list\n" +
                 "1\tJohn\t20\t3.5\tTrue\t\n" +
-                "2\tJane\t22\t3.8\tTrue";
+                "2\tJane\t22\t3.8\tTrue\t\n" +
+                "3\tBob\t19\t2.5\tFalse";
         assertEquals(expected,
                 engine.executeSQL("SELECT * FROM student WHERE gpa >= 3.5 OR age < 20"));
     }
@@ -180,7 +181,7 @@ class BPlusTreeEngineTest {
     @Test
     void testDeleteWithComplexCondition() {
         setupStudentTable();
-        assertEquals("2 row(s) deleted successfully",
+        assertEquals("3 row(s) deleted successfully",
                 engine.executeSQL("DELETE FROM student WHERE gpa >= 3.5 OR age < 20"));
     }
 
@@ -211,7 +212,7 @@ class BPlusTreeEngineTest {
 
         // Test range query
         String result = engine.executeSQL("SELECT * FROM large WHERE value >= 9900");
-        assertEquals(10, result.split("\n").length - 1); // -1 for header row
+        assertEquals(11, result.split("\n").length - 1); // -1 for header row
     }
 
     @Test
@@ -223,5 +224,23 @@ class BPlusTreeEngineTest {
 
         String result = engine.executeSQL("SELECT * FROM boundary WHERE value <= 0");
         assertEquals(2, result.split("\n").length - 1); // -1 for header row
+    }
+
+    @Test
+    void testComplexSelectWithNullHandling() {
+        engine.executeSQL("CREATE TABLE test (id, name, age, salary)");
+        engine.executeSQL("INSERT INTO test VALUES (1, 'John', 30, 50000)");
+        engine.executeSQL("INSERT INTO test VALUES (2, 'Jane', 25, 60000)");
+        engine.executeSQL("INSERT INTO test VALUES (3, 'Bob', 35, 45000)");
+
+        // Test complex conditions
+        String result1 = engine.executeSQL("SELECT * FROM test WHERE age > 25 AND salary >= 50000");
+        String result2 = engine.executeSQL("SELECT * FROM test WHERE age < 30 OR salary > 55000");
+        String result3 = engine.executeSQL("SELECT * FROM test WHERE age != 30 AND salary <= 60000");
+
+        // Verify results
+        assertTrue(result1.contains("John"));  // age 30, salary 50000
+        assertTrue(result2.contains("Jane"));  // age 25, salary 60000
+        assertTrue(result3.contains("Jane"));  // age 25, salary 60000
     }
 }

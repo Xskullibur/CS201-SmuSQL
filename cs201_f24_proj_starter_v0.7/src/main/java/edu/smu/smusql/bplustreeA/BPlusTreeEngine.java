@@ -87,16 +87,17 @@ public class BPlusTreeEngine implements IEngine {
 
         String columnName = ((ColumnNode) left).getName();
         LiteralNode literalNode = (LiteralNode) right;
+        Object value = getValueFromLiteralNode(literalNode);
 
         // Check if we're searching by primary key
         if (columnName.equals("id")) {
-            Integer value = literalNode.getType() == LiteralNode.LiteralNodeType.NUMBER
+            Integer intValue = literalNode.getType() == LiteralNode.LiteralNodeType.NUMBER
                 ? literalNode.getIntegerValue()
                 : literalNode.getValue().hashCode();
 
             // For primary key searches, return a single-element list
             if (operator.equals("=")) {
-                return Collections.singletonList(value);
+                return Collections.singletonList(intValue);
             }
 
             // For other operators, get all keys and filter
@@ -104,15 +105,23 @@ public class BPlusTreeEngine implements IEngine {
             BPlusTree<Integer, Map<String, Object>> mainTree = table.getRows();
             List<Integer> allKeys = mainTree.getAllKeys();
 
-            return filterKeysByOperator(allKeys, value, operator);
+            return filterKeysByOperator(allKeys, intValue, operator);
         }
-
-        Number value = convertToNumber(getValueFromLiteralNode(literalNode));
 
         String indexTableName = Constants.getIndexTableName(tableName, columnName);
         BPlusTree<Number, Integer> indexTree = retrieveTable(indexDatabase, indexTableName);
 
-        return evaluateCondition(indexTree, value, operator);
+        // Convert value to appropriate type for comparison
+        Number searchValue;
+        if (value instanceof String) {
+            searchValue = value.hashCode();
+        } else if (value instanceof Number) {
+            searchValue = (Number) value;
+        } else {
+            throw new IllegalArgumentException("Unsupported value type: " + value.getClass());
+        }
+
+        return evaluateCondition(indexTree, searchValue, operator);
     }
 
     private Object getValueFromLiteralNode(LiteralNode literalNode) {
@@ -142,58 +151,126 @@ public class BPlusTreeEngine implements IEngine {
     }
 
     private List<Integer> filterKeysByOperator(List<Integer> keys, Integer value, String operator) {
-        return keys.stream()
-            .filter(key -> {
-                switch (operator) {
-                    case "!=":
-                        return !key.equals(value);
-                    case "<":
-                        return key < value;
-                    case "<=":
-                        return key <= value;
-                    case ">":
-                        return key > value;
-                    case ">=":
-                        return key >= value;
-                    default:
-                        return false;
-                }
-            })
-            .collect(Collectors.toList());
+        return keys.stream().filter(key -> {
+            switch (operator) {
+                case "!=":
+                    return !key.equals(value);
+                case "<":
+                    return key < value;
+                case "<=":
+                    return key <= value;
+                case ">":
+                    return key > value;
+                case ">=":
+                    return key >= value;
+                default:
+                    return false;
+            }
+        }).collect(Collectors.toList());
     }
 
     private List<Integer> evaluateCondition(BPlusTree<Number, Integer> indexTree, Number value,
         String operator) {
+
+        // If the index tree is empty, return an empty list
+        if (indexTree.getSize() == 0) {
+            return new ArrayList<>();
+        }
+
         switch (operator) {
             case "=":
                 return indexTree.search(value);
+
             case "!=":
-                List<Integer> lessThan = indexTree.rangeSearch(Double.NEGATIVE_INFINITY,
-                    value.doubleValue() - Double.MIN_VALUE);
-                List<Integer> greaterThan = indexTree.rangeSearch(
-                    value.doubleValue() + Double.MIN_VALUE, Double.POSITIVE_INFINITY);
-                lessThan.addAll(greaterThan);
-                return lessThan;
+                // Get all values
+                List<Integer> allValues = indexTree.getAllValues();
+                if (allValues.isEmpty()) {
+                    return allValues;
+                }
+
+                // Remove matching values using a Set
+                Set<Integer> equalValues = new HashSet<>(
+                    indexTree.search(value) != null ? indexTree.search(value)
+                        : Collections.emptyList());
+
+                return allValues.stream().filter(v -> !equalValues.contains(v))
+                    .collect(Collectors.toList());
+
             case "<":
-                return indexTree.rangeSearch(Double.NEGATIVE_INFINITY, value.doubleValue() - 1);
+                List<Integer> lessThanResult = indexTree.rangeSearch(Double.NEGATIVE_INFINITY,
+                    value.doubleValue());
+                if (lessThanResult == null || lessThanResult.isEmpty()) {
+                    return new ArrayList<>();
+                }
+
+                // Remove boundary values using Set
+                Set<Integer> boundaryValues = new HashSet<>(
+                    indexTree.search(value) != null ? indexTree.search(value)
+                        : Collections.emptyList());
+                return lessThanResult.stream().filter(v -> !boundaryValues.contains(v))
+                    .collect(Collectors.toList());
+
             case "<=":
                 return indexTree.rangeSearch(Double.NEGATIVE_INFINITY, value.doubleValue());
+
             case ">":
-                return indexTree.rangeSearch(value.doubleValue() + 1, Double.POSITIVE_INFINITY);
+                List<Integer> greaterThanResult = indexTree.rangeSearch(value.doubleValue(),
+                    Double.POSITIVE_INFINITY);
+                if (greaterThanResult == null || greaterThanResult.isEmpty()) {
+                    return new ArrayList<>();
+                }
+
+                // Remove boundary values using Set
+                Set<Integer> upperBoundaryValues = new HashSet<>(
+                    indexTree.search(value) != null ? indexTree.search(value)
+                        : Collections.emptyList());
+                return greaterThanResult.stream().filter(v -> !upperBoundaryValues.contains(v))
+                    .collect(Collectors.toList());
+
             case ">=":
                 return indexTree.rangeSearch(value.doubleValue(), Double.POSITIVE_INFINITY);
+
             default:
-                throw new RuntimeException("Unsupported operator: " + operator);
+                throw new IllegalArgumentException("Unsupported operator: " + operator);
         }
     }
 
-    private List<Integer> combineResults(List<Integer> leftResult, List<Integer> rightResult, String operator) {
+    private List<Integer> combineResults(List<Integer> leftResult, List<Integer> rightResult,
+        String operator) {
+        if (leftResult == null || leftResult.isEmpty()) {
+            return rightResult != null ? new ArrayList<>(rightResult) : new ArrayList<>();
+        }
+        if (rightResult == null || rightResult.isEmpty()) {
+            return new ArrayList<>(leftResult);
+        }
+
         if (operator.equals("AND")) {
-            leftResult.retainAll(rightResult);
-            return leftResult;
+            // Use HashSet for better performance with large datasets
+            if (leftResult.size() > rightResult.size()) {
+                // Swap to ensure we use the smaller list for the HashSet
+                List<Integer> temp = leftResult;
+                leftResult = rightResult;
+                rightResult = temp;
+            }
+
+            // Create HashSet from the smaller list
+            Set<Integer> rightSet = new HashSet<>(rightResult);
+            List<Integer> result = new ArrayList<>();
+
+            // Iterate through the smaller list
+            for (Integer value : leftResult) {
+                if (rightSet.contains(value)) {
+                    result.add(value);
+                }
+            }
+            return result;
         } else if (operator.equals("OR")) {
-            leftResult.addAll(rightResult);
-            return leftResult.stream().distinct().collect(Collectors.toList());
+            // For OR operations, use HashSet for deduplication
+            Set<Integer> uniqueResults = new HashSet<>(leftResult);
+            uniqueResults.addAll(rightResult);
+            List<Integer> result = new ArrayList<>(uniqueResults);
+            Collections.sort(result); // Maintain sorted order
+            return result;
         } else {
             throw new RuntimeException("Unsupported logical operator: " + operator);
         }
@@ -362,9 +439,7 @@ public class BPlusTreeEngine implements IEngine {
         // Retrieve Query Information
         String tableName = node.getTableName();
         Integer primaryKey = node.getPrimaryKey().getIntegerValue();
-        List<LiteralNode> values = node.getValues().stream()
-            .map(LiteralNode.class::cast)
-            .toList();
+        List<LiteralNode> values = node.getValues().stream().map(LiteralNode.class::cast).toList();
 
         // Retrieve Table Information
         BPlusTreeTable table = retrieveTable(database, tableName);
