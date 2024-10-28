@@ -73,7 +73,9 @@ private List<Integer> combineResults(List<Integer> leftResult, List<Integer> rig
 # Optimizing `retrieveFilteredRows()`
 
 ## Before
-![alt text](src\combineResults\retrieveFilteredRows_before.png)
+![alt text](src\retrieveFilteredRows\retrieveFilteredRows_before.png)
+
+- 650000 Operations
 
 ```java
 private Map<Integer, Map<String, Object>> retrieveFilteredRows(List<Integer> filteredKeys,
@@ -98,7 +100,9 @@ private Map<Integer, Map<String, Object>> retrieveFilteredRows(List<Integer> fil
 ```
 
 ## After
-![alt text](src\combineResults\retrieveFilteredRows_before.png)
+![alt text](src\retrieveFilteredRows\retrieveFilteredRows_after.png)
+
+- 1 Million Operations
 
 ```java
     private Map<Integer, Map<String, Object>> retrieveFilteredRows(List<Integer> filteredKeys,
