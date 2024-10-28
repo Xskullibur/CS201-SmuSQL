@@ -1,6 +1,7 @@
 package edu.smu.smusql;
 
 import edu.smu.smusql.bplustreeA.BPlusTreeEngine;
+import edu.smu.smusql.bplustreeA.BPlusTreeEngineArray;
 import java.util.Random;
 import java.util.Scanner;
 
@@ -37,10 +38,10 @@ public class Main2 {
                 // new evaluation methods for specific SQL commands
                 evaluateInsert();
                 evaluateSelect();
-//                evaluateComplexSelect();
-//                evaluateUpdate();
-//                evaluateComplexUpdate();
-//                evaluateDelete();
+                evaluateComplexSelect();
+                evaluateUpdate();
+                evaluateComplexUpdate();
+                evaluateDelete();
                 break;
             }
 
@@ -55,7 +56,7 @@ public class Main2 {
         dbEngine.executeSQL("CREATE TABLE orders (id, user_id, product_id, quantity)");
 
         Random random = new Random();
-        int numberOfInserts = 100000;
+        int numberOfInserts = 1000000;
 
         long startTime = System.nanoTime();
         for (int i = 0; i < numberOfInserts; i++) {
@@ -79,7 +80,7 @@ public class Main2 {
 //        dbEngine.executeSQL("CREATE TABLE orders (id, user_id, product_id, quantity)");
 
         Random random = new Random();
-        int numberOfSelects = 10000;
+        int numberOfSelects = 1000000;
 
         // Prepopulate data for selecting
         System.out.println("Prepopulating data for complex SELECT evaluation...");
@@ -106,7 +107,7 @@ public class Main2 {
 //        dbEngine.executeSQL("CREATE TABLE orders (id, user_id, product_id, quantity)");
 
         Random random = new Random();
-        int numberOfSelects = 10000;
+        int numberOfSelects = 1000000;
 
         // Prepopulate data for selecting
         System.out.println("Prepopulating data for SELECT evaluation...");

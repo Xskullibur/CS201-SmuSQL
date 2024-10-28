@@ -4,7 +4,7 @@ import org.junit.jupiter.api.*;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
-public class BPlusTreePerformanceTest {
+class BPlusTreePerformanceTest {
     private static BPlusTreeEngine engine;
     private static final int SMALL_DATASET = 10_000;
     private static final int MEDIUM_DATASET = 100_000;

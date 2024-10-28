@@ -92,8 +92,7 @@ public class BPlusTreeEngine implements IEngine {
         // Check if we're searching by primary key
         if (columnName.equals("id")) {
             Integer intValue = literalNode.getType() == LiteralNode.LiteralNodeType.NUMBER
-                ? literalNode.getIntegerValue()
-                : literalNode.getValue().hashCode();
+                ? literalNode.getIntegerValue() : literalNode.getValue().hashCode();
 
             // For primary key searches, return a single-element list
             if (operator.equals("=")) {
@@ -308,7 +307,7 @@ public class BPlusTreeEngine implements IEngine {
         StringBuilder sb = new StringBuilder();
 
         // Header (column names)
-        sb.append("id\t").append(String.join("\t", columns)).append("\n");
+        sb.append("id\t").append(String.join("\t", columns)).append('\n');
 
         // Rows data
         for (Map.Entry<Integer, Map<String, Object>> entry : rows.entrySet()) {
@@ -324,9 +323,9 @@ public class BPlusTreeEngine implements IEngine {
 
             for (String column : columns) {
                 Object value = row.get(column);
-                sb.append(value != null ? value.toString() : "NULL").append("\t");
+                sb.append(value != null ? value.toString() : "NULL").append('\t');
             }
-            sb.append("\n");
+            sb.append('\n');
         }
 
         return sb.toString().trim(); // Return the formatted string
@@ -478,42 +477,15 @@ public class BPlusTreeEngine implements IEngine {
     private Map<Integer, Map<String, Object>> retrieveFilteredRows(List<Integer> filteredKeys,
         BPlusTree<Integer, Map<String, Object>> rows) {
 
-        // Pre-sort the filtered keys if not already sorted
+        if (filteredKeys == null || filteredKeys.isEmpty()) {
+            return new HashMap<>();
+        }
+
+        // Pre-sort filtered keys if not already sorted
         Collections.sort(filteredKeys);
 
-        // Create an index mapping for quick lookup of original positions
-        Map<Integer, Integer> keyPositionMap = new HashMap<>();
-        for (int i = 0; i < filteredKeys.size(); i++) {
-            keyPositionMap.put(filteredKeys.get(i), i);
-        }
-
-        // Group keys into ranges
-        List<Range<Integer>> ranges = groupKeysIntoRanges(filteredKeys);
-
-        // Retrieve filtered Rows
-        Map<Integer, Map<String, Object>> filteredRows = new HashMap<>();
-
-        int currentKeyIndex = 0;
-        for (Range<Integer> range : ranges) {
-            List<Map<String, Object>> rangeRows = rows.rangeSearch(range.getStart(),
-                range.getEnd());
-
-            // Calculate how many keys are in this range
-            int keysInRange =
-                keyPositionMap.get(range.getEnd()) - keyPositionMap.get(range.getStart()) + 1;
-
-            // Map the results to their corresponding keys
-            for (int i = 0; i < keysInRange; i++) {
-                Integer key = filteredKeys.get(currentKeyIndex + i);
-                if (i < rangeRows.size()) {  // Guard against potential index out of bounds
-                    filteredRows.put(key, rangeRows.get(i));
-                }
-            }
-
-            currentKeyIndex += keysInRange;
-        }
-
-        return filteredRows;
+        // Use the optimized multi-key search
+        return rows.multiKeySearch(filteredKeys);
     }
 
     public String select(SelectNode node) {

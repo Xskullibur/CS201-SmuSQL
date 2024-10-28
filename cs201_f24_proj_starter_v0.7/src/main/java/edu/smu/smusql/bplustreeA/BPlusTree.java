@@ -49,7 +49,7 @@ public class BPlusTree<K extends Number, V> {
 
     /**
      * For Main Tree Retrieval
-     * 
+     *
      * @return
      */
     public Map<K, V> getAllKeyValues() {
@@ -69,13 +69,83 @@ public class BPlusTree<K extends Number, V> {
         return allKeys;
     }
 
+    /**
+     * Optimized method to retrieve multiple values by their keys
+     *
+     * @param keys List of keys to search for, must be sorted
+     * @return Map of key-value pairs found
+     */
+    public Map<K, V> multiKeySearch(List<K> keys) {
+        if (keys == null || keys.isEmpty() || root == null) {
+            return new HashMap<>();
+        }
+
+        Map<K, V> results = new HashMap<>((int) (keys.size() / 0.75f) + 1);
+        LeafNode leaf = getLeafNode(keys);
+        int keyIndex = 0;
+
+        // Traverse through leaf nodes
+        while (leaf != null && keyIndex < keys.size()) {
+            K targetKey = keys.get(keyIndex);
+
+            // Process all matching keys in current leaf
+            for (int i = 0; i < leaf.keys.size() && keyIndex < keys.size(); i++) {
+                K leafKey = leaf.keys.get(i);
+                int comparison = comparator.compare(leafKey, targetKey);
+
+                if (comparison == 0) {
+                    // Found matching key
+                    results.put(targetKey, leaf.values.get(i).get(0));
+                    keyIndex++;
+                    if (keyIndex < keys.size()) {
+                        targetKey = keys.get(keyIndex);
+                    }
+                } else if (comparison > 0) {
+                    // Current leaf key is greater than target
+                    if (comparator.compare(leafKey, keys.get(keys.size() - 1)) > 0) {
+                        // All remaining leaf keys will be too large
+                        return results;
+                    }
+                    while (keyIndex < keys.size() &&
+                        comparator.compare(keys.get(keyIndex), leafKey) < 0) {
+                        keyIndex++;
+                    }
+                    if (keyIndex < keys.size()) {
+                        targetKey = keys.get(keyIndex);
+                    }
+                }
+            }
+            leaf = leaf.next;
+        }
+
+        return results;
+    }
+
+    private LeafNode getLeafNode(List<K> keys) {
+
+        Node current = root;
+
+        // Traverse to first leaf node that might contain our keys
+        while (current instanceof InternalNode) {
+            InternalNode node = (InternalNode) current;
+            int index = 0;
+            while (index < node.keys.size()
+                && comparator.compare(keys.get(0), node.keys.get(index)) >= 0) {
+                index++;
+            }
+            current = node.children.get(index);
+        }
+
+        return (LeafNode) current;
+    }
+
     public List<V> rangeSearch(K startKey, K endKey) {
         return root.rangeSearch(startKey, endKey);
     }
 
     /**
-     * Updates all values associated with a key
-     * Used primarily for the main tree where each key has one value
+     * Updates all values associated with a key Used primarily for the main tree where each key has
+     * one value
      */
     public void update(K key, V newValue) {
         List<V> searchResult = search(key);
@@ -85,9 +155,15 @@ public class BPlusTree<K extends Number, V> {
         root.update(key, newValue);
     }
 
+    // Search for a value by key in the B+ tree
+    public List<V> search(K key) {
+
+        return root.search(key);
+    }
+
     /**
-     * Updates a specific old value to a new value for a given key
-     * Used primarily for index trees where each key can have multiple values
+     * Updates a specific old value to a new value for a given key Used primarily for index trees
+     * where each key can have multiple values
      */
     public void updateValue(K key, V oldValue, V newValue) {
         List<V> searchResult = search(key);
@@ -101,8 +177,8 @@ public class BPlusTree<K extends Number, V> {
     }
 
     /**
-     * Updates an old key to a new key, maintaining all associated values
-     * Used for updating keys in both main and index trees
+     * Updates an old key to a new key, maintaining all associated values Used for updating keys in
+     * both main and index trees
      */
     public void updateKey(K oldKey, K newKey) {
         // First get all values associated with the old key
@@ -126,16 +202,6 @@ public class BPlusTree<K extends Number, V> {
         }
     }
 
-    public int getSize() {
-        return size; // Return the size of the B+ tree
-    }
-
-    // Search for a value by key in the B+ tree
-    public List<V> search(K key) {
-
-        return root.search(key);
-    }
-
     public void removeKey(K key) {
         root = root.removeKey(key);
         size--;
@@ -143,7 +209,7 @@ public class BPlusTree<K extends Number, V> {
         // If root is an internal node with no keys and only one child, make its child
         // the new root
         if (root instanceof InternalNode && root.keys.isEmpty() &&
-                ((InternalNode) root).children.size() == 1) {
+            ((InternalNode) root).children.size() == 1) {
             root = ((InternalNode) root).children.get(0);
         }
 
@@ -159,12 +225,17 @@ public class BPlusTree<K extends Number, V> {
         Node newNode = root.insert(key, value); // Insert into the root node
         if (newNode != null) { // If the root was split
             InternalNode newRoot = new InternalNode(); // Create a new root
-            newRoot.keys.add(newNode.getFirstLeafKey()); // Add the first key of the new node to the new root
+            newRoot.keys.add(
+                newNode.getFirstLeafKey()); // Add the first key of the new node to the new root
             newRoot.children.add(root); // Add the old root as the first child
             newRoot.children.add(newNode); // Add the new node as the second child
             root = newRoot; // Update the root
         }
         size++;
+    }
+
+    public int getSize() {
+        return size; // Return the size of the B+ tree
     }
 
     public Node removeValue(K key, V value) {
@@ -174,7 +245,7 @@ public class BPlusTree<K extends Number, V> {
         // If root is an internal node with no keys and only one child, make its child
         // the new root
         if (root instanceof InternalNode && root.keys.isEmpty() &&
-                ((InternalNode) root).children.size() == 1) {
+            ((InternalNode) root).children.size() == 1) {
             root = ((InternalNode) root).children.get(0);
         }
 
@@ -315,10 +386,10 @@ public class BPlusTree<K extends Number, V> {
 
             // Handle underflow
             if (result instanceof LeafNode && !result.keys.isEmpty() &&
-                    result.keys.size() < (order - 1) / 2) {
+                result.keys.size() < (order - 1) / 2) {
                 handleLeafUnderflow(childIndex);
             } else if (result instanceof InternalNode && !result.keys.isEmpty() &&
-                    result.keys.size() < (order - 1) / 2) {
+                result.keys.size() < (order - 1) / 2) {
                 handleInternalUnderflow(childIndex);
             }
 
@@ -350,10 +421,10 @@ public class BPlusTree<K extends Number, V> {
 
             // Handle underflow
             if (result instanceof LeafNode && !result.keys.isEmpty() &&
-                    result.keys.size() < (order - 1) / 2) {
+                result.keys.size() < (order - 1) / 2) {
                 handleLeafUnderflow(childIndex);
             } else if (result instanceof InternalNode && !result.keys.isEmpty() &&
-                    result.keys.size() < (order - 1) / 2) {
+                result.keys.size() < (order - 1) / 2) {
                 handleInternalUnderflow(childIndex);
             }
 
@@ -381,7 +452,8 @@ public class BPlusTree<K extends Number, V> {
             }
 
             LeafNode leftSibling = childIndex > 0 ? (LeafNode) children.get(childIndex - 1) : null;
-            LeafNode rightSibling = childIndex < children.size() - 1 ? (LeafNode) children.get(childIndex + 1) : null;
+            LeafNode rightSibling =
+                childIndex < children.size() - 1 ? (LeafNode) children.get(childIndex + 1) : null;
 
             // Try to borrow from siblings first
             if (rightSibling != null && rightSibling.keys.size() > (order - 1) / 2) {
@@ -408,8 +480,10 @@ public class BPlusTree<K extends Number, V> {
 
         private void handleInternalUnderflow(int childIndex) {
             InternalNode child = (InternalNode) children.get(childIndex);
-            InternalNode leftSibling = childIndex > 0 ? (InternalNode) children.get(childIndex - 1) : null;
-            InternalNode rightSibling = childIndex < children.size() - 1 ? (InternalNode) children.get(childIndex + 1)
+            InternalNode leftSibling =
+                childIndex > 0 ? (InternalNode) children.get(childIndex - 1) : null;
+            InternalNode rightSibling =
+                childIndex < children.size() - 1 ? (InternalNode) children.get(childIndex + 1)
                     : null;
 
             // Try to borrow from right sibling first
@@ -555,7 +629,7 @@ public class BPlusTree<K extends Number, V> {
                 for (int i = 0; i < currentNode.keys.size(); i++) {
                     K key = currentNode.keys.get(i);
                     if (comparator.compare(key, startKey) >= 0
-                            && comparator.compare(key, endKey) <= 0) {
+                        && comparator.compare(key, endKey) <= 0) {
                         result.addAll(currentNode.values.get(i));
                         started = true;
                     } else if (started) {
