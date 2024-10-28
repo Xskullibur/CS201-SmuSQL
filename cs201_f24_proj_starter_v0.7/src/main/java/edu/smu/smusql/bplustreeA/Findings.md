@@ -69,3 +69,93 @@ private List<Integer> combineResults(List<Integer> leftResult, List<Integer> rig
 
 ### OR operations
 - Just add everything
+
+# Optimizing `retrieveFilteredRows()`
+
+## Before
+![alt text](src\combineResults\retrieveFilteredRows_before.png)
+
+```java
+private Map<Integer, Map<String, Object>> retrieveFilteredRows(List<Integer> filteredKeys,
+    BPlusTree<Integer, Map<String, Object>> rows) {
+
+    // Group keys into ranges
+    List<Range<Integer>> ranges = groupKeysIntoRanges(filteredKeys);
+
+    // Retrieve filtered Rows
+    Map<Integer, Map<String, Object>> filteredRows = new HashMap<>();
+
+    for (Range<Integer> range : ranges) {
+        List<Map<String, Object>> rangeRows = rows.rangeSearch(range.getStart(),
+            range.getEnd());
+        for (int i = 0; i < rangeRows.size(); i++) {
+            Integer key = filteredKeys.get(filteredKeys.indexOf(range.getStart()) + i);
+            filteredRows.put(key, rangeRows.get(i));
+        }
+    }
+    return filteredRows;
+}
+```
+
+## After
+![alt text](src\combineResults\retrieveFilteredRows_before.png)
+
+```java
+    private Map<Integer, Map<String, Object>> retrieveFilteredRows(List<Integer> filteredKeys,
+        BPlusTree<Integer, Map<String, Object>> rows) {
+
+        // Pre-sort the filtered keys if not already sorted
+        Collections.sort(filteredKeys);
+
+        // Create an index mapping for quick lookup of original positions
+        Map<Integer, Integer> keyPositionMap = new HashMap<>();
+        for (int i = 0; i < filteredKeys.size(); i++) {
+            keyPositionMap.put(filteredKeys.get(i), i);
+        }
+
+        // Group keys into ranges
+        List<Range<Integer>> ranges = groupKeysIntoRanges(filteredKeys);
+
+        // Retrieve filtered Rows
+        Map<Integer, Map<String, Object>> filteredRows = new HashMap<>();
+
+        int currentKeyIndex = 0;
+        for (Range<Integer> range : ranges) {
+            List<Map<String, Object>> rangeRows = rows.rangeSearch(range.getStart(), range.getEnd());
+
+            // Calculate how many keys are in this range
+            int keysInRange = keyPositionMap.get(range.getEnd()) - keyPositionMap.get(range.getStart()) + 1;
+
+            // Map the results to their corresponding keys
+            for (int i = 0; i < keysInRange; i++) {
+                Integer key = filteredKeys.get(currentKeyIndex + i);
+                if (i < rangeRows.size()) {  // Guard against potential index out of bounds
+                    filteredRows.put(key, rangeRows.get(i));
+                }
+            }
+
+            currentKeyIndex += keysInRange;
+        }
+
+        return filteredRows;
+    }
+```
+
+Key Optimizations:
+
+1. Eliminated the expensive indexOf() operations by:
+
+    - Creating a keyPositionMap that stores each key's position in the filtered keys list
+    - Using direct indexing to track positions with currentKeyIndex
+
+2. Added efficiency improvements:
+
+    - Pre-sorting the filtered keys if not already sorted
+    - Using a HashMap for O(1) position lookups
+    - Maintaining a running index counter instead of searching for positions
+
+
+The time complexity improvements are:
+
+- Original: O(n²) due to repeated indexOf() calls
+- Optimized: O(n log n) for the initial sort, then O(n) for the rest of the operations

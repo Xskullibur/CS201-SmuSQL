@@ -18,6 +18,7 @@ import edu.smu.smusql.parser.nodes.LiteralNode;
 import edu.smu.smusql.parser.nodes.SelectNode;
 import edu.smu.smusql.parser.nodes.UpdateNode;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -27,12 +28,12 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-public class BPlusTreeEngine implements IEngine {
+public class BPlusTreeEngineArray implements IEngine {
 
-    private Map<String, BPlusTreeTableHashMap> database;
+    private Map<String, BPlusTreeTableArray> database;
     private Map<String, BPlusTree<Number, Integer>> indexDatabase;
 
-    public BPlusTreeEngine() {
+    public BPlusTreeEngineArray() {
         this.database = new HashMap<>();
         indexDatabase = new HashMap<>();
     }
@@ -101,8 +102,8 @@ public class BPlusTreeEngine implements IEngine {
             }
 
             // For other operators, get all keys and filter
-            BPlusTreeTableHashMap table = retrieveTable(database, tableName);
-            BPlusTree<Integer, Map<String, Object>> mainTree = table.getRows();
+            BPlusTreeTableArray table = retrieveTable(database, tableName);
+            BPlusTree<Integer, Object[]> mainTree = table.getRows();
             List<Integer> allKeys = mainTree.getAllKeys();
 
             return filterKeysByOperator(allKeys, intValue, operator);
@@ -303,33 +304,55 @@ public class BPlusTreeEngine implements IEngine {
         return ranges;
     }
 
-    private String formatSelectResults(Map<Integer, Map<String, Object>> rows,
-        List<String> columns) {
-        StringBuilder sb = new StringBuilder();
-
-        // Header (column names)
-        sb.append("id\t").append(String.join("\t", columns)).append("\n");
-
-        // Rows data
-        for (Map.Entry<Integer, Map<String, Object>> entry : rows.entrySet()) {
-
-            Integer id = entry.getKey();
-            Map<String, Object> row = entry.getValue();
-
-            if (row == null) {
-                continue; // Skip null rows
-            }
-
-            sb.append(id).append("\t");
-
-            for (String column : columns) {
-                Object value = row.get(column);
-                sb.append(value != null ? value.toString() : "NULL").append("\t");
-            }
-            sb.append("\n");
+    private String formatSelectResults(Map<Integer, Object[]> rows, List<String> columns) {
+        if (rows == null || rows.isEmpty()) {
+            return "id\t" + String.join("\t", columns);
         }
 
-        return sb.toString().trim(); // Return the formatted string
+        // Pre-calculate buffer size
+        int estimatedRowSize = (columns.size() + 1) * 12; // Average 12 chars per cell including tabs
+        int totalSize = (rows.size() + 1) * estimatedRowSize; // +1 for header
+        StringBuilder sb = new StringBuilder(totalSize);
+
+        // Append header
+        sb.append("id");
+        for (String column : columns) {
+            sb.append('\t').append(column);
+        }
+        sb.append('\n');
+
+        // Append rows - using direct array access
+        for (Map.Entry<Integer, Object[]> entry : rows.entrySet()) {
+            Object[] row = entry.getValue();
+            if (row == null) {
+                continue;
+            }
+
+            sb.append(entry.getKey()); // Append ID
+
+            // Direct array access
+            for (Object value : row) {
+                sb.append('\t');
+                if (value != null) {
+                    if (value instanceof String) {
+                        sb.append((String) value);
+                    } else if (value instanceof Number) {
+                        sb.append(value.toString());
+                    } else {
+                        sb.append(value);
+                    }
+                } else {
+                    sb.append("NULL");
+                }
+            }
+            sb.append('\n');
+        }
+
+        if (!sb.isEmpty() && sb.charAt(sb.length() - 1) == '\n') {
+            sb.setLength(sb.length() - 1);
+        }
+
+        return sb.toString();
     }
 
     public String executeSQL(String query) {
@@ -376,7 +399,7 @@ public class BPlusTreeEngine implements IEngine {
         }
 
         // Get table columns to identify indexes to clear
-        BPlusTreeTableHashMap table = database.get(tableName);
+        BPlusTreeTableArray table = database.get(tableName);
         List<String> columns = table.getColumns();
 
         // Clear all index trees for this table
@@ -390,28 +413,23 @@ public class BPlusTreeEngine implements IEngine {
         }
 
         // Clear and recreate main table
-        BPlusTreeTableHashMap newTable = new BPlusTreeTableHashMap(columns);
+        BPlusTreeTableArray newTable = new BPlusTreeTableArray(columns);
         database.put(tableName, newTable);
 
         return "Table " + tableName + " cleared successfully";
     }
 
     public String create(CreateTableNode node) {
-
         String tableName = node.getTableName();
         List<String> columns = node.getColumns();
 
-        // Add table into database
         if (database.containsKey(tableName)) {
             throw new RuntimeException("Table " + tableName + " already exist");
         }
 
-        BPlusTreeTableHashMap table = new BPlusTreeTableHashMap(columns);
+        BPlusTreeTableArray table = new BPlusTreeTableArray(columns);
         database.put(tableName, table);
 
-        /**
-         * Create Indexing Trees with column fields as Key and PrimaryKey as Value
-         */
         for (String col : columns) {
             BPlusTree<Number, Integer> indexTree = new BPlusTree<>(Constants.B_PLUS_TREE_ORDER);
             String indexTableName = Constants.getIndexTableName(tableName, col);
@@ -420,7 +438,6 @@ public class BPlusTreeEngine implements IEngine {
             if (Constants.LOGGING) {
                 System.out.println("Indexing Table " + indexTableName + " created successfully");
             }
-
         }
 
         return "Table " + tableName + " created successfully";
@@ -435,153 +452,107 @@ public class BPlusTreeEngine implements IEngine {
      * does not exist.
      */
     public String insert(InsertNode node) {
-
-        // Retrieve Query Information
         String tableName = node.getTableName();
         Integer primaryKey = node.getPrimaryKey().getIntegerValue();
-        List<LiteralNode> values = node.getValues().stream().map(LiteralNode.class::cast).toList();
+        List<LiteralNode> values = node.getValues().stream()
+            .map(LiteralNode.class::cast)
+            .toList();
 
-        // Retrieve Table Information
-        BPlusTreeTableHashMap table = retrieveTable(database, tableName);
-        BPlusTree<Integer, Map<String, Object>> rows = table.getRows();
+        BPlusTreeTableArray table = retrieveTable(database, tableName);
+        BPlusTree<Integer, Object[]> rows = table.getRows();
         List<String> columns = table.getColumns();
 
         if (values.size() != columns.size()) {
             throw new RuntimeException("ERROR: Column count does not match value count");
         }
 
-        // Search database for existing primary key
         if (rows.search(primaryKey) != null) {
             return "0 row inserted, primary key already exists";
         }
 
-        // Populate inserted table values
-        Map<String, Object> rowData = new HashMap<>();
+        // Create array instead of HashMap
+        Object[] rowData = new Object[columns.size()];
 
         for (int i = 0; i < columns.size(); i++) {
             String column = columns.get(i);
-            String indexTableName = Constants.getIndexTableName(tableName, column);
             LiteralNode literalNode = values.get(i);
-
             Object value = getValueFromLiteralNode(literalNode);
-            rowData.put(column, value);
+
+            // Store in array
+            rowData[i] = value;
+
+            // Update index
+            String indexTableName = Constants.getIndexTableName(tableName, column);
             BPlusTree<Number, Integer> tree = indexDatabase.get(indexTableName);
             tree.insert(convertToNumber(value), primaryKey);
         }
 
-        // Get the table
         rows.insert(primaryKey, rowData);
-
         return "1 row inserted successfully";
     }
 
-    private Map<Integer, Map<String, Object>> retrieveFilteredRows(List<Integer> filteredKeys,
-        BPlusTree<Integer, Map<String, Object>> rows) {
-
-        // Pre-sort the filtered keys if not already sorted
-        Collections.sort(filteredKeys);
-
-        // Create an index mapping for quick lookup of original positions
-        Map<Integer, Integer> keyPositionMap = new HashMap<>();
-        for (int i = 0; i < filteredKeys.size(); i++) {
-            keyPositionMap.put(filteredKeys.get(i), i);
-        }
-
-        // Group keys into ranges
+    private Map<Integer, Object[]> retrieveFilteredRows(List<Integer> filteredKeys,
+        BPlusTree<Integer, Object[]> rows) {
         List<Range<Integer>> ranges = groupKeysIntoRanges(filteredKeys);
+        Map<Integer, Object[]> filteredRows = new HashMap<>();
 
-        // Retrieve filtered Rows
-        Map<Integer, Map<String, Object>> filteredRows = new HashMap<>();
-
-        int currentKeyIndex = 0;
         for (Range<Integer> range : ranges) {
-            List<Map<String, Object>> rangeRows = rows.rangeSearch(range.getStart(),
-                range.getEnd());
-
-            // Calculate how many keys are in this range
-            int keysInRange =
-                keyPositionMap.get(range.getEnd()) - keyPositionMap.get(range.getStart()) + 1;
-
-            // Map the results to their corresponding keys
-            for (int i = 0; i < keysInRange; i++) {
-                Integer key = filteredKeys.get(currentKeyIndex + i);
-                if (i < rangeRows.size()) {  // Guard against potential index out of bounds
-                    filteredRows.put(key, rangeRows.get(i));
-                }
+            List<Object[]> rangeRows = rows.rangeSearch(range.getStart(), range.getEnd());
+            for (int i = 0; i < rangeRows.size(); i++) {
+                Integer key = filteredKeys.get(filteredKeys.indexOf(range.getStart()) + i);
+                filteredRows.put(key, rangeRows.get(i));
             }
-
-            currentKeyIndex += keysInRange;
         }
-
         return filteredRows;
     }
 
     public String select(SelectNode node) {
-
-        // Retrieve query information
         String tableName = node.getTableName();
         ConditionNode whereClause = node.getWhereClause();
 
-        // Retrieve table
-        BPlusTreeTableHashMap table = retrieveTable(database, tableName);
-        BPlusTree<Integer, Map<String, Object>> rows = table.getRows();
+        BPlusTreeTableArray table = retrieveTable(database, tableName);
+        BPlusTree<Integer, Object[]> rows = table.getRows();
         List<String> columns = table.getColumns();
 
-        // Handle SELECT * Query
         if (whereClause == null && Objects.equals(node.getColumns().get(0), "*")) {
             return formatSelectResults(rows.getAllKeyValues(), columns);
         }
 
-        // Get primary keys based on whereClause
         List<Integer> filteredKeys = filterIndexes(tableName, whereClause);
-        // Get rows using filteredKeys
-        Map<Integer, Map<String, Object>> fitleredRows = retrieveFilteredRows(filteredKeys, rows);
+        Map<Integer, Object[]> filteredRows = retrieveFilteredRows(filteredKeys, rows);
 
-        // Format and return output
-        return formatSelectResults(fitleredRows, columns);
+        return formatSelectResults(filteredRows, columns);
     }
 
     public String delete(DeleteNode node) {
-
-        // Retrieve query info
         String tableName = node.getTableName();
         ConditionNode whereClause = node.getWhereClause();
 
-        // Retrieve table
-        BPlusTreeTableHashMap table = retrieveTable(database, tableName);
-        BPlusTree<Integer, Map<String, Object>> rows = table.getRows();
+        BPlusTreeTableArray table = retrieveTable(database, tableName);
+        BPlusTree<Integer, Object[]> rows = table.getRows();
+        List<String> columns = table.getColumns();
 
         if (rows.getSize() == 0) {
             return "0 row(s) deleted, no rows found";
         }
 
-        // Get primary keys based on whereClause
         List<Integer> filteredKeys = filterIndexes(tableName, whereClause);
-        // Get rows using filteredKeys
-        Map<Integer, Map<String, Object>> fitleredRows = retrieveFilteredRows(filteredKeys, rows);
+        Map<Integer, Object[]> filteredRows = retrieveFilteredRows(filteredKeys, rows);
 
-        if (fitleredRows.isEmpty()) {
+        if (filteredRows.isEmpty()) {
             return "0 row(s) deleted, not found";
         }
 
-        // Remove entries from the index database
-        /**
-         * IndexDatabase:
-         * - Key: Columns
-         * - Value: PrimaryKey
-         */
-        for (Map.Entry<Integer, Map<String, Object>> row : fitleredRows.entrySet()) {
+        for (Map.Entry<Integer, Object[]> entry : filteredRows.entrySet()) {
+            Integer rowValue = entry.getKey();
+            Object[] rowData = entry.getValue();
 
-            Integer rowValue = row.getKey();
-            Map<String, Object> rowData = row.getValue();
-
-            for (Map.Entry<String, Object> column : rowData.entrySet()) {
-
-                String columnName = column.getKey();
-                Number columnValue = convertToNumber(column.getValue());
+            for (int i = 0; i < columns.size(); i++) {
+                String columnName = columns.get(i);
+                Object value = rowData[i];
 
                 String indexTableName = Constants.getIndexTableName(tableName, columnName);
-                removeIndexEntry(indexTableName, columnValue, rowValue);
+                removeIndexEntry(indexTableName, value, rowValue);
             }
         }
 
@@ -606,61 +577,48 @@ public class BPlusTreeEngine implements IEngine {
     }
 
     public String update(UpdateNode node) {
-
-        // Retrieve query information
         String tableName = node.getTableName();
         ConditionNode whereClause = node.getWhereClause();
         List<AssignmentNode> assignments = node.getAssignments();
 
-        // Retrieve table
-        BPlusTreeTableHashMap table = retrieveTable(database, tableName);
-        BPlusTree<Integer, Map<String, Object>> rows = table.getRows();
+        BPlusTreeTableArray table = retrieveTable(database, tableName);
+        BPlusTree<Integer, Object[]> rows = table.getRows();
+        List<String> columns = table.getColumns();
 
         if (rows.getSize() == 0) {
             return "0 row(s) updated, no rows found";
         }
 
-        // Get primary keys based on whereClause
         List<Integer> filteredKeys = filterIndexes(tableName, whereClause);
-        // Get rows using filteredKeys
-        Map<Integer, Map<String, Object>> filteredRows = retrieveFilteredRows(filteredKeys, rows);
+        Map<Integer, Object[]> filteredRows = retrieveFilteredRows(filteredKeys, rows);
 
         if (filteredRows.isEmpty()) {
             return "0 row(s) updated, not found";
         }
 
-        // For each row that matches the where clause
-        for (Map.Entry<Integer, Map<String, Object>> row : filteredRows.entrySet()) {
-            Integer primaryKey = row.getKey();
-            Map<String, Object> rowData = row.getValue();
+        for (Map.Entry<Integer, Object[]> entry : filteredRows.entrySet()) {
+            Integer primaryKey = entry.getKey();
+            Object[] oldRow = entry.getValue();
+            Object[] newRow = Arrays.copyOf(oldRow, oldRow.length);
 
-            // Create a new row data with updated values
-            Map<String, Object> updatedRowData = new HashMap<>(rowData);
-
-            // For each assignment node
             for (AssignmentNode assignment : assignments) {
-
                 String columnName = assignment.getColumn();
+                int columnIndex = columns.indexOf(columnName);
+
                 LiteralNode newValueNode = (LiteralNode) assignment.getValue();
                 Object newValue = getValueFromLiteralNode(newValueNode);
-                Object oldValue = rowData.get(columnName);
+                Object oldValue = oldRow[columnIndex];
 
-                // Update the index tree
                 String indexTableName = Constants.getIndexTableName(tableName, columnName);
                 BPlusTree<Number, Integer> indexTree = indexDatabase.get(indexTableName);
 
-                // Remove old index entry
                 indexTree.removeValue(convertToNumber(oldValue), primaryKey);
-
-                // Insert new index entry
                 indexTree.insert(convertToNumber(newValue), primaryKey);
 
-                // Update the row data
-                updatedRowData.put(columnName, newValue);
+                newRow[columnIndex] = newValue;
             }
 
-            // Update the main tree
-            rows.update(primaryKey, updatedRowData);
+            rows.update(primaryKey, newRow);
         }
 
         return filteredKeys.size() + " row(s) updated successfully";
