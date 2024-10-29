@@ -116,7 +116,7 @@ class BPlusTreeEngineTest {
     @Test
     void testSelectNoResults() {
         setupStudentTable();
-        assertEquals("id\tname\tage\tgpa\tdeans_list",
+        assertEquals("id\tname\tage\tgpa\tdeans_list\n",
                 engine.executeSQL("SELECT * FROM student WHERE gpa > 4.0"));
     }
 
@@ -197,7 +197,7 @@ class BPlusTreeEngineTest {
         setupStudentTable();
         assertEquals("3 row(s) deleted successfully",
                 engine.executeSQL("DELETE FROM student WHERE id >= 0"));
-        assertEquals("id\tname\tage\tgpa\tdeans_list",
+        assertEquals("id\tname\tage\tgpa\tdeans_list\n",
                 engine.executeSQL("SELECT * FROM student"));
     }
 

@@ -2,7 +2,8 @@ package edu.smu.smusql.bplustreeA;
 
 import edu.smu.smusql.Constants;
 import edu.smu.smusql.IEngine;
-import edu.smu.smusql.bplustreeA.helper.Range;
+import edu.smu.smusql.lruCache.LRUCache;
+import edu.smu.smusql.lruCache.CacheQueryKey;
 import edu.smu.smusql.parser.AstParser;
 import edu.smu.smusql.parser.Token;
 import edu.smu.smusql.parser.Tokenizer;
@@ -29,12 +30,26 @@ import java.util.stream.Collectors;
 
 public class BPlusTreeEngine implements IEngine {
 
+    // Only implemented for "SELECT *" statements
+    private final LRUCache<CacheQueryKey, String> queryCache;
     private Map<String, BPlusTreeTableHashMap> database;
     private Map<String, BPlusTree<Number, Integer>> indexDatabase;
+    private long cacheHits = 0;
+    private long cacheMisses = 0;
 
     public BPlusTreeEngine() {
         this.database = new HashMap<>();
         indexDatabase = new HashMap<>();
+        this.queryCache = new LRUCache<>(Constants.CACHE_SIZE);
+    }
+
+    private static String buildHeaderString(List<String> columns) {
+        StringBuilder header = new StringBuilder("id");
+        for (String column : columns) {
+            header.append('\t').append(column);
+        }
+        header.append('\n');
+        return header.toString();
     }
 
     private <T> T retrieveTable(Map<String, T> database, String tableName) {
@@ -52,7 +67,6 @@ public class BPlusTreeEngine implements IEngine {
             return null;
         }
 
-        // Evaluate the condition node
         return evaluateConditionNode(tableName, node);
     }
 
@@ -77,6 +91,7 @@ public class BPlusTreeEngine implements IEngine {
     }
 
     private List<Integer> evaluateSimpleCondition(String tableName, ConditionNode node) {
+
         ExpressionNode left = (ExpressionNode) node.getLeft();
         ExpressionNode right = (ExpressionNode) node.getRight();
         String operator = node.getOperator();
@@ -236,6 +251,7 @@ public class BPlusTreeEngine implements IEngine {
 
     private List<Integer> combineResults(List<Integer> leftResult, List<Integer> rightResult,
         String operator) {
+
         if (leftResult == null || leftResult.isEmpty()) {
             return rightResult != null ? new ArrayList<>(rightResult) : new ArrayList<>();
         }
@@ -275,39 +291,19 @@ public class BPlusTreeEngine implements IEngine {
         }
     }
 
-    private List<Range<Integer>> groupKeysIntoRanges(List<Integer> keys) {
-
-        List<Range<Integer>> ranges = new ArrayList<>();
-
-        if (keys.isEmpty()) {
-            return ranges;
-        }
-
-        Collections.sort(keys);
-        Integer start = keys.get(0);
-        Integer end = start;
-
-        for (int i = 1; i < keys.size(); i++) {
-            Integer current = keys.get(i);
-            if (current.equals(end + 1)) {
-                end = current;
-            } else {
-                ranges.add(new Range<>(start, end));
-                start = current;
-                end = start;
-            }
-        }
-        ranges.add(new Range<>(start, end));
-
-        return ranges;
-    }
-
     private String formatSelectResults(Map<Integer, Map<String, Object>> rows,
         List<String> columns) {
+
+        String header = buildHeaderString(columns);
+
+        if (rows == null || rows.isEmpty()) {
+            return header;
+        }
+
         StringBuilder sb = new StringBuilder();
 
         // Header (column names)
-        sb.append("id\t").append(String.join("\t", columns)).append('\n');
+        sb.append(header);
 
         // Rows data
         for (Map.Entry<Integer, Map<String, Object>> entry : rows.entrySet()) {
@@ -359,40 +355,6 @@ public class BPlusTreeEngine implements IEngine {
         // Clear both main database and index database
         database.clear();
         indexDatabase.clear();
-    }
-
-    /**
-     * Clears all data from a specific table and its indexes. Used primarily for testing purposes.
-     *
-     * @param tableName the name of the table to clear
-     * @return String indicating the cleanup was successful
-     * @throws RuntimeException if the table doesn't exist
-     */
-    public String clearTable(String tableName) {
-        // Check if table exists
-        if (!database.containsKey(tableName)) {
-            throw new RuntimeException("ERROR: Table " + tableName + " does not exist");
-        }
-
-        // Get table columns to identify indexes to clear
-        BPlusTreeTableHashMap table = database.get(tableName);
-        List<String> columns = table.getColumns();
-
-        // Clear all index trees for this table
-        for (String column : columns) {
-            String indexTableName = Constants.getIndexTableName(tableName, column);
-            indexDatabase.remove(indexTableName);
-
-            // Recreate empty index tree
-            BPlusTree<Number, Integer> indexTree = new BPlusTree<>(Constants.B_PLUS_TREE_ORDER);
-            indexDatabase.put(indexTableName, indexTree);
-        }
-
-        // Clear and recreate main table
-        BPlusTreeTableHashMap newTable = new BPlusTreeTableHashMap(columns);
-        database.put(tableName, newTable);
-
-        return "Table " + tableName + " cleared successfully";
     }
 
     public String create(CreateTableNode node) {
@@ -454,6 +416,8 @@ public class BPlusTreeEngine implements IEngine {
             return "0 row inserted, primary key already exists";
         }
 
+        invalidateCacheForTable(node.getTableName());
+
         // Populate inserted table values
         Map<String, Object> rowData = new HashMap<>();
 
@@ -472,6 +436,10 @@ public class BPlusTreeEngine implements IEngine {
         rows.insert(primaryKey, rowData);
 
         return "1 row inserted successfully";
+    }
+
+    private void invalidateCacheForTable(String tableName) {
+        queryCache.entrySet().removeIf(entry -> entry.getKey().tableName.equals(tableName));
     }
 
     private Map<Integer, Map<String, Object>> retrieveFilteredRows(List<Integer> filteredKeys,
@@ -494,14 +462,31 @@ public class BPlusTreeEngine implements IEngine {
         String tableName = node.getTableName();
         ConditionNode whereClause = node.getWhereClause();
 
-        // Retrieve table
+        // Create cache key
+        CacheQueryKey queryKey = new CacheQueryKey(node.getTableName(), node.getWhereClause(),
+            node.getColumns());
+
+        // Check cache first
+        String cachedResult = queryCache.get(queryKey);
+        if (cachedResult != null) {
+            recordCacheHit();
+            return cachedResult;
+        }
+
+        recordCacheMiss();
+
+        // If not in cache, execute query
         BPlusTreeTableHashMap table = retrieveTable(database, tableName);
         BPlusTree<Integer, Map<String, Object>> rows = table.getRows();
         List<String> columns = table.getColumns();
 
+        String result;
+
         // Handle SELECT * Query
         if (whereClause == null && Objects.equals(node.getColumns().get(0), "*")) {
-            return formatSelectResults(rows.getAllKeyValues(), columns);
+            result = formatSelectResults(rows.getAllKeyValues(), columns);
+            queryCache.put(queryKey, result);
+            return result;
         }
 
         // Get primary keys based on whereClause
@@ -509,8 +494,9 @@ public class BPlusTreeEngine implements IEngine {
         // Get rows using filteredKeys
         Map<Integer, Map<String, Object>> fitleredRows = retrieveFilteredRows(filteredKeys, rows);
 
-        // Format and return output
-        return formatSelectResults(fitleredRows, columns);
+        // Format results
+        result = formatSelectResults(fitleredRows, columns);
+        return result;
     }
 
     public String delete(DeleteNode node) {
@@ -536,9 +522,10 @@ public class BPlusTreeEngine implements IEngine {
             return "0 row(s) deleted, not found";
         }
 
-        // Remove entries from the index database
+        invalidateCacheForTable(node.getTableName());
+
         /**
-         * IndexDatabase:
+         * Remove entries from the index database
          * - Key: Columns
          * - Value: PrimaryKey
          */
@@ -601,6 +588,8 @@ public class BPlusTreeEngine implements IEngine {
             return "0 row(s) updated, not found";
         }
 
+        invalidateCacheForTable(node.getTableName());
+
         // For each row that matches the where clause
         for (Map.Entry<Integer, Map<String, Object>> row : filteredRows.entrySet()) {
             Integer primaryKey = row.getKey();
@@ -636,6 +625,24 @@ public class BPlusTreeEngine implements IEngine {
         }
 
         return filteredKeys.size() + " row(s) updated successfully";
+    }
+
+    public void recordCacheHit() {
+        cacheHits++;
+    }
+
+    public void recordCacheMiss() {
+        cacheMisses++;
+    }
+
+    public double getCacheHitRate() {
+        long total = cacheHits + cacheMisses;
+        return total == 0 ? 0.0 : (double) cacheHits / total;
+    }
+
+    public void clearCacheMetrics() {
+        cacheHits = 0;
+        cacheMisses = 0;
     }
 
 }

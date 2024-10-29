@@ -1,7 +1,6 @@
 package edu.smu.smusql;
 
 import edu.smu.smusql.bplustreeA.BPlusTreeEngine;
-import edu.smu.smusql.bplustreeA.BPlusTreeEngineArray;
 import java.util.Random;
 import java.util.Scanner;
 
@@ -99,6 +98,8 @@ public class Main2 {
         double elapsedTimeInSeconds = (stopTime - startTime) / 1_000_000_000.0;
         System.out.println("Time taken for " + numberOfSelects + " complex SELECT operations: "
             + elapsedTimeInSeconds + " seconds");
+
+        ((BPlusTreeEngine)dbEngine).clearCacheMetrics();
     }
 
     public static void evaluateSelect() {
@@ -118,7 +119,9 @@ public class Main2 {
             selectRandomData(random);
 
             if (i % 10000 == 0) {
-                System.out.println("Processed " + i + " queries...");
+//                System.out.println("Processed " + i + " queries...");
+                System.out.printf("Processed %d queries. Cache hit rate: %.2f%%\n",
+                    i, ((BPlusTreeEngine) dbEngine).getCacheHitRate() * 100);
             }
         }
         long stopTime = System.nanoTime();

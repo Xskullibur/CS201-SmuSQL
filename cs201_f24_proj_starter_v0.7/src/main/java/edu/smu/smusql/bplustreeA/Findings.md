@@ -163,3 +163,40 @@ The time complexity improvements are:
 
 - Original: O(n²) due to repeated indexOf() calls
 - Optimized: O(n log n) for the initial sort, then O(n) for the rest of the operations
+
+# Benchmark Results
+    Time taken for 1000000 INSERT operations: 4.8537316 seconds
+    Time taken for 1000000 SELECT operations: 875.0254231 seconds
+    Time taken for 1000000 complex SELECT operations: 527.275861501 seconds
+    Time taken for 1000000 UPDATE operations: 4.5755587 seconds
+    Time taken for 1000000 complex UPDATE operations: 4.4934803 seconds
+    Time taken for 1000000 DELETE operations: 2.2432603 seconds
+
+## Analysis
+![alt text](src\benchmarks\benchmark3.png)
+
+    For each SELECT query:
+    - retrieveTable: O(1)
+    - filterIndexes: O(log n) for B+ tree operations
+    - retrieveFilteredRows: O(k log n) where k = number of filtered keys
+    - formatSelectResults: O(r * c) where:
+        - r: number of rows
+        - c: number of columns
+    - Plus string operations cost for each cell
+
+- Retrieving and computing each `SELECT *` statements would take too long
+
+## Solution: Caching
+![alt text](image.png)
+
+    Cache Hit:
+    - Cache lookup: O(1)
+    - Skip all other operations
+
+    Cache Miss:
+    - Same as without cache + O(1) for cache insertion
+
+- Eliminates Expensive Operations:
+    - Skips row retrieval
+    - Skips string formatting
+    - Avoids StringBuilder operations
