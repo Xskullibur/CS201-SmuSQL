@@ -95,7 +95,7 @@ public class Engine {
                     nonNullRows.add(row);
                 }
             }
-            return nonNullRows.toString();
+            return formatSelectResults(tbl.getColumns(), nonNullRows);
         }
 
         // Handle WHERE clause with AND/OR logic
@@ -138,7 +138,7 @@ public class Engine {
             resultSet.addAll(rowsMatchingCondition1);
         }
 
-        return resultSet.toString();
+        return formatSelectResults(tbl.getColumns(), new ArrayList<>(resultSet));
     }
 
     public String update(String[] tokens) {
@@ -327,5 +327,47 @@ public class Engine {
             tokens[i] = tokens[i].toUpperCase();
         }
         return tokens;
+    }
+
+    // Format the SELECT results with aligned columns
+    private String formatSelectResults(List<String> columns, List<Map<String, String>> rows) {
+        StringBuilder result = new StringBuilder();
+
+        int[] columnWidths = new int[columns.size()]; // Width of each column
+
+        int numberOfColumns = columns.size();
+        for (int i = 0; i < numberOfColumns; i++) {
+            columnWidths[i] = columns.get(i).length();
+        }
+
+        // Measure the longest column value to determine spacing
+        for (Map<String, String> row : rows) {
+                for (int i = 0; i < numberOfColumns; i++) {
+                    String columnValue = row.get(columns.get(i));
+                    if (columnValue != null) {
+                        columnWidths[i] = Math.max(columnWidths[i], columnValue.length()); // Take the highest length to ensure correct spacing
+                    }
+                }
+            }
+
+        // Print column names
+        for (int i = 0; i < numberOfColumns; i++) {
+            result.append(String.format("%-" + columnWidths[i] + "s", columns.get(i))); // "%-" is for left aligning and the "s" indicates its a String
+            if (i < numberOfColumns - 1) result.append(" | "); // stop adding the line for last column
+        }
+        result.append("\n");
+        result.append("-".repeat(result.length()) + "\n"); // Creating line to separate column heads and column values
+
+        // Print selected rows
+        for (Map<String, String> row : rows) {
+            for (int i = 0; i < columns.size(); i++) {
+                String value = row.get(columns.get(i));
+                result.append(String.format("%-" + columnWidths[i] + "s", value != null ? value : "NULL"));
+            if (i < numberOfColumns - 1) result.append(" | ");
+            }
+            result.append("\n");
+        }
+
+        return result.toString();
     }
 }
