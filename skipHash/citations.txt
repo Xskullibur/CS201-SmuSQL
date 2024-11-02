@@ -11,3 +11,7 @@ Queries made to GPT 4o to create skipHash implementation
 9. help me change this part in the insert statmemnt such that strings are properly isnserted when using parenthesis such as 'hello' (so that i can pass the Test cases provided by Alson)
 10. help me debug <insert various error messages from testing>
 11. help me handle the case where the operator = '!=' <insert code for returnKeysByRequirementsOnIndex()>
+
+Queries to GPT o1-preview
+1. These two tests are failing. Help me figure out why. ValuesGreaterThan stops too late and valuesLesserThanOrEquals stops too early. provided is the implementations as well
+2. help me fix this as well <insert test case that failed> , the problem was that 0 rows were returned. Heres my equals method in indexing adn how it works in the skiplist: <insert equals method> <insert terminal with bugs> I cannot select when the city is 'Los Angeles'. What might be causing this issue?
