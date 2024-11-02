@@ -63,6 +63,7 @@ public class Main {
     
         double elapsedTimeInSeconds = (stopTime - startTime) / 1_000_000_000.0;
         System.out.println("Time taken for " + numberOfInserts + " INSERT operations: " + elapsedTimeInSeconds + " seconds");
+        dbEngine = new Engine();
     }
 
     public static void evaluateSelect() {
@@ -89,6 +90,7 @@ public class Main {
     
         double elapsedTimeInSeconds = (stopTime - startTime) / 1_000_000_000.0;
         System.out.println("Time taken for " + numberOfSelects + " SELECT operations: " + elapsedTimeInSeconds + " seconds");
+        dbEngine = new Engine();
     }
 
     public static void evaluateComplexSelect() {
@@ -115,9 +117,14 @@ public class Main {
     
         double elapsedTimeInSeconds = (stopTime - startTime) / 1_000_000_000.0;
         System.out.println("Time taken for " + numberOfSelects + " complex SELECT operations: " + elapsedTimeInSeconds + " seconds");
+        dbEngine = new Engine();
     }
 
     public static void evaluateUpdate() {
+        dbEngine.executeSQL("CREATE TABLE users (id, name, age, city)");
+        dbEngine.executeSQL("CREATE TABLE products (id, name, price, category)");
+        dbEngine.executeSQL("CREATE TABLE orders (id, user_id, product_id, quantity)");
+
         Random random = new Random();
         int numberOfUpdates = 1000000;
     
@@ -137,9 +144,14 @@ public class Main {
     
         double elapsedTimeInSeconds = (stopTime - startTime) / 1_000_000_000.0;
         System.out.println("Time taken for " + numberOfUpdates + " UPDATE operations: " + elapsedTimeInSeconds + " seconds");
+        dbEngine = new Engine();
     }
 
     public static void evaluateComplexUpdate() {
+        dbEngine.executeSQL("CREATE TABLE users (id, name, age, city)");
+        dbEngine.executeSQL("CREATE TABLE products (id, name, price, category)");
+        dbEngine.executeSQL("CREATE TABLE orders (id, user_id, product_id, quantity)");
+
         Random random = new Random();
         int numberOfUpdates = 1000000;
     
@@ -159,9 +171,14 @@ public class Main {
     
         double elapsedTimeInSeconds = (stopTime - startTime) / 1_000_000_000.0;
         System.out.println("Time taken for " + numberOfUpdates + " UPDATE operations: " + elapsedTimeInSeconds + " seconds");
+        dbEngine = new Engine();
     }
 
     public static void evaluateDelete() {
+        dbEngine.executeSQL("CREATE TABLE users (id, name, age, city)");
+        dbEngine.executeSQL("CREATE TABLE products (id, name, price, category)");
+        dbEngine.executeSQL("CREATE TABLE orders (id, user_id, product_id, quantity)");
+        
         Random random = new Random();
         int numberOfDeletes = 1000000;
     
@@ -181,6 +198,7 @@ public class Main {
     
         double elapsedTimeInSeconds = (stopTime - startTime) / 1_000_000_000.0;
         System.out.println("Time taken for " + numberOfDeletes + " DELETE operations: " + elapsedTimeInSeconds + " seconds");
+        dbEngine = new Engine();
     }
 
     /*

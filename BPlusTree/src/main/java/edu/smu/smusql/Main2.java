@@ -56,152 +56,155 @@ public class Main2 {
 
         Random random = new Random();
         int numberOfInserts = 1000000;
-
+    
         long startTime = System.nanoTime();
         for (int i = 0; i < numberOfInserts; i++) {
             insertRandomData(random);
 
-            if (i % 10000 == 0) {
+            if (i % 10000 == 0){
                 System.out.println("Processed " + i + " queries...");
             }
         }
         long stopTime = System.nanoTime();
-
+    
         double elapsedTimeInSeconds = (stopTime - startTime) / 1_000_000_000.0;
-        System.out.println(
-            "Time taken for " + numberOfInserts + " INSERT operations: " + elapsedTimeInSeconds
-                + " seconds");
-    }
-
-    public static void evaluateComplexSelect() {
-//        dbEngine.executeSQL("CREATE TABLE users (id, name, age, city)");
-//        dbEngine.executeSQL("CREATE TABLE products (id, name, price, category)");
-//        dbEngine.executeSQL("CREATE TABLE orders (id, user_id, product_id, quantity)");
-
-        Random random = new Random();
-        int numberOfSelects = 1000000;
-
-        // Prepopulate data for selecting
-        System.out.println("Prepopulating data for complex SELECT evaluation...");
-        prepopulateTables(random);
-
-        long startTime = System.nanoTime();
-        for (int i = 0; i < numberOfSelects; i++) {
-            complexSelectQuery(random);
-
-            if (i % 10000 == 0) {
-                System.out.println("Processed " + i + " queries...");
-            }
-        }
-        long stopTime = System.nanoTime();
-
-        double elapsedTimeInSeconds = (stopTime - startTime) / 1_000_000_000.0;
-        System.out.println("Time taken for " + numberOfSelects + " complex SELECT operations: "
-            + elapsedTimeInSeconds + " seconds");
-
-        ((BPlusTreeEngine)dbEngine).clearCacheMetrics();
+        System.out.println("Time taken for " + numberOfInserts + " INSERT operations: " + elapsedTimeInSeconds + " seconds");
+        dbEngine = new Engine();
     }
 
     public static void evaluateSelect() {
-//        dbEngine.executeSQL("CREATE TABLE users (id, name, age, city)");
-//        dbEngine.executeSQL("CREATE TABLE products (id, name, price, category)");
-//        dbEngine.executeSQL("CREATE TABLE orders (id, user_id, product_id, quantity)");
+        dbEngine.executeSQL("CREATE TABLE users (id, name, age, city)");
+        dbEngine.executeSQL("CREATE TABLE products (id, name, price, category)");
+        dbEngine.executeSQL("CREATE TABLE orders (id, user_id, product_id, quantity)");
 
         Random random = new Random();
         int numberOfSelects = 1000000;
-
+    
         // Prepopulate data for selecting
         System.out.println("Prepopulating data for SELECT evaluation...");
         prepopulateTables(random);
-
+    
         long startTime = System.nanoTime();
         for (int i = 0; i < numberOfSelects; i++) {
             selectRandomData(random);
 
-            if (i % 10000 == 0) {
-//                System.out.println("Processed " + i + " queries...");
-                System.out.printf("Processed %d queries. Cache hit rate: %.2f%%\n",
-                    i, ((BPlusTreeEngine) dbEngine).getCacheHitRate() * 100);
+            if (i % 10000 == 0){
+                System.out.println("Processed " + i + " queries...");
             }
         }
         long stopTime = System.nanoTime();
-
+    
         double elapsedTimeInSeconds = (stopTime - startTime) / 1_000_000_000.0;
-        System.out.println(
-            "Time taken for " + numberOfSelects + " SELECT operations: " + elapsedTimeInSeconds
-                + " seconds");
+        System.out.println("Time taken for " + numberOfSelects + " SELECT operations: " + elapsedTimeInSeconds + " seconds");
+        dbEngine = new Engine();
+    }
+
+    public static void evaluateComplexSelect() {
+        dbEngine.executeSQL("CREATE TABLE users (id, name, age, city)");
+        dbEngine.executeSQL("CREATE TABLE products (id, name, price, category)");
+        dbEngine.executeSQL("CREATE TABLE orders (id, user_id, product_id, quantity)");
+
+        Random random = new Random();
+        int numberOfSelects = 1000000;
+    
+        // Prepopulate data for selecting
+        System.out.println("Prepopulating data for complex SELECT evaluation...");
+        prepopulateTables(random);
+    
+        long startTime = System.nanoTime();
+        for (int i = 0; i < numberOfSelects; i++) {
+            complexSelectQuery(random);
+
+            if (i % 10000 == 0){
+                System.out.println("Processed " + i + " queries...");
+            }
+        }
+        long stopTime = System.nanoTime();
+    
+        double elapsedTimeInSeconds = (stopTime - startTime) / 1_000_000_000.0;
+        System.out.println("Time taken for " + numberOfSelects + " complex SELECT operations: " + elapsedTimeInSeconds + " seconds");
+        dbEngine = new Engine();
     }
 
     public static void evaluateUpdate() {
+        dbEngine.executeSQL("CREATE TABLE users (id, name, age, city)");
+        dbEngine.executeSQL("CREATE TABLE products (id, name, price, category)");
+        dbEngine.executeSQL("CREATE TABLE orders (id, user_id, product_id, quantity)");
+
         Random random = new Random();
         int numberOfUpdates = 1000000;
-
+    
         // Prepopulate data for updating
         System.out.println("Prepopulating data for UPDATE evaluation...");
         prepopulateTables(random);
-
+    
         long startTime = System.nanoTime();
         for (int i = 0; i < numberOfUpdates; i++) {
             updateRandomData(random);
 
-            if (i % 10000 == 0) {
+            if (i % 10000 == 0){
                 System.out.println("Processed " + i + " queries...");
             }
         }
         long stopTime = System.nanoTime();
-
+    
         double elapsedTimeInSeconds = (stopTime - startTime) / 1_000_000_000.0;
-        System.out.println(
-            "Time taken for " + numberOfUpdates + " UPDATE operations: " + elapsedTimeInSeconds
-                + " seconds");
+        System.out.println("Time taken for " + numberOfUpdates + " UPDATE operations: " + elapsedTimeInSeconds + " seconds");
+        dbEngine = new Engine();
     }
 
     public static void evaluateComplexUpdate() {
+        dbEngine.executeSQL("CREATE TABLE users (id, name, age, city)");
+        dbEngine.executeSQL("CREATE TABLE products (id, name, price, category)");
+        dbEngine.executeSQL("CREATE TABLE orders (id, user_id, product_id, quantity)");
+
         Random random = new Random();
         int numberOfUpdates = 1000000;
-
+    
         // Prepopulate data for updating
         System.out.println("Prepopulating data for complex UPDATE evaluation...");
         prepopulateTables(random);
-
+    
         long startTime = System.nanoTime();
         for (int i = 0; i < numberOfUpdates; i++) {
             updateRandomData(random);
 
-            if (i % 10000 == 0) {
+            if (i % 10000 == 0){
                 System.out.println("Processed " + i + " queries...");
             }
         }
         long stopTime = System.nanoTime();
-
+    
         double elapsedTimeInSeconds = (stopTime - startTime) / 1_000_000_000.0;
-        System.out.println(
-            "Time taken for " + numberOfUpdates + " UPDATE operations: " + elapsedTimeInSeconds
-                + " seconds");
+        System.out.println("Time taken for " + numberOfUpdates + " UPDATE operations: " + elapsedTimeInSeconds + " seconds");
+        dbEngine = new Engine();
     }
 
     public static void evaluateDelete() {
+        dbEngine.executeSQL("CREATE TABLE users (id, name, age, city)");
+        dbEngine.executeSQL("CREATE TABLE products (id, name, price, category)");
+        dbEngine.executeSQL("CREATE TABLE orders (id, user_id, product_id, quantity)");
+        
         Random random = new Random();
         int numberOfDeletes = 1000000;
-
+    
         // Prepopulate data for deleting
         System.out.println("Prepopulating data for DELETE evaluation...");
         prepopulateTables(random);
-
+    
         long startTime = System.nanoTime();
         for (int i = 0; i < numberOfDeletes; i++) {
             deleteRandomData(random);
 
-            if (i % 10000 == 0) {
+            if (i % 10000 == 0){
                 System.out.println("Processed " + i + " queries...");
             }
         }
         long stopTime = System.nanoTime();
-
+    
         double elapsedTimeInSeconds = (stopTime - startTime) / 1_000_000_000.0;
-        System.out.println(
-            "Time taken for " + numberOfDeletes + " DELETE operations: " + elapsedTimeInSeconds
-                + " seconds");
+        System.out.println("Time taken for " + numberOfDeletes + " DELETE operations: " + elapsedTimeInSeconds + " seconds");
+        dbEngine = new Engine();
     }
 
     /*
