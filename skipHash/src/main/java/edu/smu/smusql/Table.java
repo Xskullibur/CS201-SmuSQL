@@ -3,24 +3,24 @@ package edu.smu.smusql;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import javax.management.RuntimeErrorException;
-
 public class Table {
     private String name; // Table name
     private List<String> columns; // List of column names
-    private int numCols;
     private Map<String, Row> data; // HashMap of Rows indexed by ID
     private Map<String, SkipList<Indexing>> secondaryIndices; // Secondary indices: column name -> SkipList of Indexing
 
     private static final String STRING_INT_MAX = Integer.toString(Integer.MAX_VALUE);
     private static final String STRING_INT_MIN = Integer.toString(Integer.MIN_VALUE);
 
+    public Table() {
+
+    }
+
     public Table(String name, List<String> columns) {
         this.name = name;
         this.columns = columns;
         this.data = new HashMap<>();
         this.secondaryIndices = new HashMap<>();
-        numCols = columns.size();
         // Automatically create secondary indices for all columns except the primary key
         for (String column : columns) {
             createSecondaryIndex(column);
@@ -37,6 +37,10 @@ public class Table {
 
     public Map<String, Row> getData() {
         return data;
+    }
+
+    public void setSecondaryIndices(HashMap<String, SkipList<Indexing>> indices) {
+        this.secondaryIndices = indices;
     }
 
     // Create a secondary index for a specific column
@@ -82,13 +86,17 @@ public class Table {
             case "!=":
                 Set<String> allKeys = indexList.getAllValues().stream()
                         .map(Indexing::getPrimaryKey)
-                        .collect(Collectors.toSet());
+                        .collect(Collectors.toCollection(TreeSet::new)); // Collect into a sorted set
+
                 List<String> equalKeys = indexList.getValuesEqual(new Indexing(value, STRING_INT_MIN)).stream()
                         .map(Indexing::getPrimaryKey)
                         .toList();
-                allKeys.removeAll(equalKeys);
-                result.addAll(allKeys);
+
+                allKeys.removeAll(equalKeys); // Remove matching keys
+
+                result.addAll(allKeys); // Add the sorted keys to the result
                 break;
+
             default:
                 throw new IllegalArgumentException("Invalid operator: " + operator);
         }

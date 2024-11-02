@@ -12,7 +12,7 @@ public class MainTest {
         public static void setup() {
                 dbEngine = new Engine();
         }
-        
+
         public void createTables() {
                 dbEngine.executeSQL("CREATE TABLE users (id, name, age, city)");
                 dbEngine.executeSQL("CREATE TABLE products (id, name, price, category)");
@@ -149,6 +149,12 @@ public class MainTest {
                 dbEngine.executeSQL("INSERT INTO users VALUES (3, 'Charlie', 35, 'Chicago')");
                 dbEngine.executeSQL("INSERT INTO users VALUES (4, 'David', 40, 'Boston')");
                 dbEngine.executeSQL("INSERT INTO users VALUES (5, 'Eve', 28, 'San Francisco')");
+                
+                String check = dbEngine.executeSQL("SELECT * FROM users where city = 'Los Angeles'");
+                assertTrue("Los Angeles".compareTo("Los Angeles") == 0);
+                assertEquals("id\tname\tage\tcity\n" + //
+                "2\tBob\t25\tLos Angeles", check, "one row should be returned"
+                );
 
                 // Execute complex DELETE query with OR condition
                 assertEquals("3 row(s) deleted successfully",

@@ -39,11 +39,7 @@ public class Indexing implements Comparable<Indexing> {
         if(this.columnValue.contains(".") || other.columnValue.contains(".")){
             comparisonResult = compareAsDoubles(this.columnValue, other.columnValue);
         } else {
-            comparisonResult = compareAsLong(columnValue, other.columnValue);
-        }
-        // If the column values are the same, compare by primary key (for tie-breaking)
-        if (comparisonResult == 0) {
-            return this.primaryKey.compareTo(other.primaryKey);
+            comparisonResult = compareAsInteger(columnValue, other.columnValue);
         }
 
         return comparisonResult;
@@ -52,7 +48,7 @@ public class Indexing implements Comparable<Indexing> {
     // Helper method to compare two values as numbers, falling back to string
     // comparison, used for eevrything but getValuesEqual.
 
-    private int compareAsLong(String value1, String value2){
+    private int compareAsInteger(String value1, String value2){
         try {
             // Try to parse both values as integers
             Integer num1 = Integer.parseInt(value1);

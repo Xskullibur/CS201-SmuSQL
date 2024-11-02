@@ -1,6 +1,8 @@
 package edu.smu.smusql;
 
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.*;
 
 public class Engine {
@@ -12,7 +14,7 @@ public class Engine {
     }
 
     public String executeSQL(String query) {
-        String[] tokens = query.trim().split("\\s+");
+        String[] tokens = tokenize(query);
         String command = tokens[0].toUpperCase(); // Commands are always case-insensitive
 
         switch (command) {
@@ -289,6 +291,21 @@ public class Engine {
         }
         return conditions;
     }
+
+    public static String[] tokenize(String input) {
+    List<String> tokens = new ArrayList<>();
+    Matcher m = Pattern.compile("'([^']*)'|\"([^\"]*)\"|(\\S+)").matcher(input);
+    while (m.find()) {
+        if (m.group(1) != null) {
+            tokens.add("'" + m.group(1) + "'");
+        } else if (m.group(2) != null) {
+            tokens.add("\"" + m.group(2) + "\"");
+        } else {
+            tokens.add(m.group(3));
+        }
+    }
+    return tokens.toArray(new String[0]);
+}
 
 
     private List<String> parseColumns(String[] tokens, int startIndex) {

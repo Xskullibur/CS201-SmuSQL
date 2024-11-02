@@ -177,7 +177,7 @@ public class SkipList<E extends Comparable<E>> implements Iterable<E> {
         }
 
         // Step 3: Collect all values equal to the given value
-        while (current.next != null && current.next.value.equals(value)) {
+        while (current.next != null && current.next.value.compareTo(value) == 0) {
             result.add(current.next.value); // Add values equal to the given value
             current = current.next; // Move to the next node to handle duplicates
         }
@@ -188,7 +188,7 @@ public class SkipList<E extends Comparable<E>> implements Iterable<E> {
     public List<E> getValuesGreater(E value) {
         List<E> result = new ArrayList<>();
         Node<E> current = head;
-
+    
         // Step 1: Descend to the lowest level
         while (current.down != null) {
             while (current.next != null && current.next.value.compareTo(value) <= 0) {
@@ -196,20 +196,22 @@ public class SkipList<E extends Comparable<E>> implements Iterable<E> {
             }
             current = current.down; // Move down to the next level
         }
-
-        // Step 2: Move to the first value greater than the given value
+    
+        // Step 2: Move to the first value strictly greater than the given value
         while (current.next != null && current.next.value.compareTo(value) <= 0) {
             current = current.next; // Skip values less than or equal to the given value
         }
-
-        // Step 3: Collect all values greater than the given value
+    
+        // Step 3: Collect all values strictly greater than the given value
         while (current.next != null) {
-            result.add(current.next.value); // Add all values greater than the given value
+            // Add all values greater than the given value
+            result.add(current.next.value);
             current = current.next;
         }
-
+    
         return result;
     }
+    
 
     public List<E> getValuesGreaterOrEquals(E value) {
         List<E> result = new ArrayList<>();
