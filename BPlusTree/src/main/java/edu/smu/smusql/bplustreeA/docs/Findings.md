@@ -72,7 +72,7 @@ Uses streams with `distinct()`
         }
     }
 ```
-![alt text](../src/combineResults/post_combineResults_optimization.png)
+![alt text](../src/combineResults/combineResults_after.png)
 
 ### Improvements
 - Utilized `HashSet` for better performance with large datasets

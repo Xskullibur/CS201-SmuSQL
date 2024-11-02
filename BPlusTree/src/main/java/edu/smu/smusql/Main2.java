@@ -69,7 +69,7 @@ public class Main2 {
     
         double elapsedTimeInSeconds = (stopTime - startTime) / 1_000_000_000.0;
         System.out.println("Time taken for " + numberOfInserts + " INSERT operations: " + elapsedTimeInSeconds + " seconds");
-        dbEngine = new Engine();
+        dbEngine = new BPlusTreeEngine();
     }
 
     public static void evaluateSelect() {
@@ -96,7 +96,7 @@ public class Main2 {
     
         double elapsedTimeInSeconds = (stopTime - startTime) / 1_000_000_000.0;
         System.out.println("Time taken for " + numberOfSelects + " SELECT operations: " + elapsedTimeInSeconds + " seconds");
-        dbEngine = new Engine();
+        dbEngine = new BPlusTreeEngine();
     }
 
     public static void evaluateComplexSelect() {
@@ -123,7 +123,7 @@ public class Main2 {
     
         double elapsedTimeInSeconds = (stopTime - startTime) / 1_000_000_000.0;
         System.out.println("Time taken for " + numberOfSelects + " complex SELECT operations: " + elapsedTimeInSeconds + " seconds");
-        dbEngine = new Engine();
+        dbEngine = new BPlusTreeEngine();
     }
 
     public static void evaluateUpdate() {
@@ -150,7 +150,7 @@ public class Main2 {
     
         double elapsedTimeInSeconds = (stopTime - startTime) / 1_000_000_000.0;
         System.out.println("Time taken for " + numberOfUpdates + " UPDATE operations: " + elapsedTimeInSeconds + " seconds");
-        dbEngine = new Engine();
+        dbEngine = new BPlusTreeEngine();
     }
 
     public static void evaluateComplexUpdate() {
@@ -177,7 +177,7 @@ public class Main2 {
     
         double elapsedTimeInSeconds = (stopTime - startTime) / 1_000_000_000.0;
         System.out.println("Time taken for " + numberOfUpdates + " UPDATE operations: " + elapsedTimeInSeconds + " seconds");
-        dbEngine = new Engine();
+        dbEngine = new BPlusTreeEngine();
     }
 
     public static void evaluateDelete() {
@@ -204,7 +204,7 @@ public class Main2 {
     
         double elapsedTimeInSeconds = (stopTime - startTime) / 1_000_000_000.0;
         System.out.println("Time taken for " + numberOfDeletes + " DELETE operations: " + elapsedTimeInSeconds + " seconds");
-        dbEngine = new Engine();
+        dbEngine = new BPlusTreeEngine();
     }
 
     /*
