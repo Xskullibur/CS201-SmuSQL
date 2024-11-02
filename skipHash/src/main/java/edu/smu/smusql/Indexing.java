@@ -35,8 +35,12 @@ public class Indexing implements Comparable<Indexing> {
     @Override
     public int compareTo(Indexing other) {
         // Try to compare columnValue as numbers
-        int comparisonResult = compareAsNumbers(this.columnValue, other.columnValue);
-
+        int comparisonResult = 0;
+        if(this.columnValue.contains(".") || other.columnValue.contains(".")){
+            comparisonResult = compareAsDoubles(this.columnValue, other.columnValue);
+        } else {
+            comparisonResult = compareAsLong(columnValue, other.columnValue);
+        }
         // If the column values are the same, compare by primary key (for tie-breaking)
         if (comparisonResult == 0) {
             return this.primaryKey.compareTo(other.primaryKey);
@@ -47,7 +51,20 @@ public class Indexing implements Comparable<Indexing> {
 
     // Helper method to compare two values as numbers, falling back to string
     // comparison, used for eevrything but getValuesEqual.
-    private int compareAsNumbers(String value1, String value2) {
+
+    private int compareAsLong(String value1, String value2){
+        try {
+            // Try to parse both values as integers
+            Integer num1 = Integer.parseInt(value1);
+            Integer num2 = Integer.parseInt(value2);
+
+            // Compare as numbers if both values are numeric
+            return num1.compareTo(num2);
+        } catch (NumberFormatException e){
+            return value1.compareTo(value2);
+        }
+    }
+    private int compareAsDoubles(String value1, String value2) {
         try {
             // Try to parse both values as integers
             Double num1 = Double.parseDouble(value1);

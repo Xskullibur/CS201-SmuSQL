@@ -117,6 +117,15 @@ public class SkipList<E extends Comparable<E>> implements Iterable<E> {
         return found;
     }
 
+    public List<E> getAllValues(){
+        List<E> result = new ArrayList<>();
+        Iterator<E> r = iterator();
+        while(r.hasNext()){
+            result.add(r.next());
+        }
+        return result;
+    }
+
     @Override
     public Iterator<E> iterator() {
         // Return a new Iterator object that traverses the skip list from the first

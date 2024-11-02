@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report-3.0.xsd" version="3.0" name="edu.smu.smusql.EngineTest" time="0.446" tests="5" errors="0" skipped="0" failures="0">
+<testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report-3.0.xsd" version="3.0" name="edu.smu.smusql.EngineTest" time="0.544" tests="5" errors="0" skipped="0" failures="0">
   <properties>
     <property name="java.specification.version" value="21"/>
     <property name="sun.cpu.isalist" value="amd64"/>
@@ -15,7 +15,7 @@
     <property name="sun.java.launcher" value="SUN_STANDARD"/>
     <property name="user.country" value="SG"/>
     <property name="sun.boot.library.path" value="C:\Program Files\Java\jdk-21\bin"/>
-    <property name="sun.java.command" value="C:\Users\purvez\AppData\Local\Temp\surefire8248840898862843137\surefirebooter-20241013075006927_3.jar C:\Users\purvez\AppData\Local\Temp\surefire8248840898862843137 2024-10-13T07-50-06_827-jvmRun1 surefire-20241013075006927_1tmp surefire_0-20241013075006927_2tmp"/>
+    <property name="sun.java.command" value="C:\Users\purvez\AppData\Local\Temp\surefire1081839656418251976\surefirebooter-20241102132905524_3.jar C:\Users\purvez\AppData\Local\Temp\surefire1081839656418251976 2024-11-02T13-29-05_404-jvmRun1 surefire-20241102132905524_1tmp surefire_0-20241102132905524_2tmp"/>
     <property name="jdk.debug" value="release"/>
     <property name="surefire.test.class.path" value="C:\Users\purvez\OneDrive - Temasek Polytechnic\Desktop\CS 201\Project\CS201-proj-SkipList\skipLinkListIndexedVersion\target\test-classes;C:\Users\purvez\OneDrive - Temasek Polytechnic\Desktop\CS 201\Project\CS201-proj-SkipList\skipLinkListIndexedVersion\target\classes;C:\Users\purvez\.m2\repository\org\junit\jupiter\junit-jupiter-api\5.8.1\junit-jupiter-api-5.8.1.jar;C:\Users\purvez\.m2\repository\org\opentest4j\opentest4j\1.2.0\opentest4j-1.2.0.jar;C:\Users\purvez\.m2\repository\org\junit\platform\junit-platform-commons\1.8.1\junit-platform-commons-1.8.1.jar;C:\Users\purvez\.m2\repository\org\apiguardian\apiguardian-api\1.1.2\apiguardian-api-1.1.2.jar;C:\Users\purvez\.m2\repository\org\junit\jupiter\junit-jupiter-engine\5.8.1\junit-jupiter-engine-5.8.1.jar;C:\Users\purvez\.m2\repository\org\junit\platform\junit-platform-engine\1.8.1\junit-platform-engine-1.8.1.jar;C:\Users\purvez\.m2\repository\org\mockito\mockito-core\4.3.1\mockito-core-4.3.1.jar;C:\Users\purvez\.m2\repository\net\bytebuddy\byte-buddy\1.12.7\byte-buddy-1.12.7.jar;C:\Users\purvez\.m2\repository\net\bytebuddy\byte-buddy-agent\1.12.7\byte-buddy-agent-1.12.7.jar;C:\Users\purvez\.m2\repository\org\objenesis\objenesis\3.2\objenesis-3.2.jar;C:\Users\purvez\.m2\repository\org\mockito\mockito-junit-jupiter\4.3.1\mockito-junit-jupiter-4.3.1.jar;"/>
     <property name="sun.cpu.endian" value="little"/>
@@ -30,7 +30,7 @@
     <property name="line.separator" value="&#10;"/>
     <property name="java.vm.specification.vendor" value="Oracle Corporation"/>
     <property name="java.specification.name" value="Java Platform API Specification"/>
-    <property name="surefire.real.class.path" value="C:\Users\purvez\AppData\Local\Temp\surefire8248840898862843137\surefirebooter-20241013075006927_3.jar"/>
+    <property name="surefire.real.class.path" value="C:\Users\purvez\AppData\Local\Temp\surefire1081839656418251976\surefirebooter-20241102132905524_3.jar"/>
     <property name="user.script" value=""/>
     <property name="sun.management.compiler" value="HotSpot 64-Bit Tiered Compilers"/>
     <property name="java.runtime.version" value="21.0.1+12-LTS-29"/>
@@ -58,9 +58,9 @@
     <property name="sun.io.unicode.encoding" value="UnicodeLittle"/>
     <property name="java.class.version" value="65.0"/>
   </properties>
-  <testcase name="testInsertIntoTable" classname="edu.smu.smusql.EngineTest" time="0.406"/>
-  <testcase name="testUpdateTable" classname="edu.smu.smusql.EngineTest" time="0.016"/>
+  <testcase name="testInsertIntoTable" classname="edu.smu.smusql.EngineTest" time="0.504"/>
+  <testcase name="testUpdateTable" classname="edu.smu.smusql.EngineTest" time="0.017"/>
   <testcase name="testCreateTable" classname="edu.smu.smusql.EngineTest" time="0.004"/>
-  <testcase name="testSelectFromTable" classname="edu.smu.smusql.EngineTest" time="0.003"/>
-  <testcase name="testDeleteFromTable" classname="edu.smu.smusql.EngineTest" time="0.002"/>
+  <testcase name="testSelectFromTable" classname="edu.smu.smusql.EngineTest" time="0.002"/>
+  <testcase name="testDeleteFromTable" classname="edu.smu.smusql.EngineTest" time="0.001"/>
 </testsuite>

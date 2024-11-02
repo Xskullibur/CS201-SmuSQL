@@ -1,6 +1,9 @@
 package edu.smu.smusql;
 
 import java.util.*;
+import java.util.stream.Collectors;
+
+import javax.management.RuntimeErrorException;
 
 public class Table {
     private String name; // Table name
@@ -19,7 +22,7 @@ public class Table {
         this.secondaryIndices = new HashMap<>();
         numCols = columns.size();
         // Automatically create secondary indices for all columns except the primary key
-        for(String column : columns){
+        for (String column : columns) {
             createSecondaryIndex(column);
         }
     }
@@ -76,6 +79,16 @@ public class Table {
                 result.addAll(indexList.getValuesEqual(new Indexing(value, STRING_INT_MIN)).stream()
                         .map(Indexing::getPrimaryKey).toList());
                 break;
+            case "!=":
+                Set<String> allKeys = indexList.getAllValues().stream()
+                        .map(Indexing::getPrimaryKey)
+                        .collect(Collectors.toSet());
+                List<String> equalKeys = indexList.getValuesEqual(new Indexing(value, STRING_INT_MIN)).stream()
+                        .map(Indexing::getPrimaryKey)
+                        .toList();
+                allKeys.removeAll(equalKeys);
+                result.addAll(allKeys);
+                break;
             default:
                 throw new IllegalArgumentException("Invalid operator: " + operator);
         }
@@ -92,7 +105,8 @@ public class Table {
 
         // Check if the row ID already exists and remove it if it does (to replace)
         if (data.containsKey(id)) {
-            deleteRow(id); // Remove the old row before inserting the new one
+            throw new RuntimeException("0 row inserted, primary key already exists"); // Remove the old row before
+                                                                                      // inserting the new one
         }
 
         // Insert the new row into the primary HashMap
@@ -129,7 +143,7 @@ public class Table {
                     existingRow.getData().put(entry.getKey(), entry.getValue());
                 }
             }
-            
+
             // Update the row in the HashMap
             data.put(id, existingRow);
 
