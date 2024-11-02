@@ -13,7 +13,7 @@ private List<Integer> combineResults(List<Integer> leftResult, List<Integer> rig
 }
 ```
 
-![alt text](src\combineResults\pre_combineResults_optimization.png)
+![alt text](..\src\combineResults\pre_combineResults_optimization.png)
 
 > Taking longer than the actual tree traversal
 
@@ -60,7 +60,7 @@ private List<Integer> combineResults(List<Integer> leftResult, List<Integer> rig
         }
     }
 ```
-![alt text](src/combineResults/post_combineResults_optimization.png)
+![alt text](../src/combineResults/post_combineResults_optimization.png)
 
 - Utilize a hashset to ensure unique rows
 
@@ -100,7 +100,7 @@ private Map<Integer, Map<String, Object>> retrieveFilteredRows(List<Integer> fil
 ```
 
 ## After
-![alt text](src\retrieveFilteredRows\retrieveFilteredRows_after.png)
+![alt text](..\src\retrieveFilteredRows\retrieveFilteredRows_after.png)
 
 - 1 Million Operations
 
@@ -173,7 +173,7 @@ The time complexity improvements are:
     Time taken for 1000000 DELETE operations: 2.2432603 seconds
 
 ## Analysis
-![alt text](src\benchmarks\benchmark3.png)
+![alt text](..\src\benchmarks\benchmark3.png)
 
     For each SELECT query:
     - retrieveTable: O(1)
@@ -187,7 +187,7 @@ The time complexity improvements are:
 - Retrieving and computing each `SELECT *` statements would take too long
 
 ## Solution: Caching
-![alt text](image.png)
+![alt text](..\src\benchmarks\benchmark4.png)
 
     Cache Hit:
     - Cache lookup: O(1)
