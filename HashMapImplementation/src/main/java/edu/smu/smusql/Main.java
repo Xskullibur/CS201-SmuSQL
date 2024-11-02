@@ -2,8 +2,6 @@ package edu.smu.smusql;
 
 import java.util.*;
 
-// @author ziyuanliu@smu.edu.sg
-
 public class Main {
     /*
      *  Main method for accessing the command line interface of the database engine.
@@ -185,7 +183,6 @@ public class Main {
         System.out.println("Time taken for " + numberOfDeletes + " DELETE operations: " + elapsedTimeInSeconds + " seconds");
     }
 
-
     /*
      *  Below is the code for auto-evaluating your work.
      *  DO NOT CHANGE ANYTHING BELOW THIS LINE!
@@ -205,14 +202,10 @@ public class Main {
 
         // Prepopulate the tables in preparation for evaluation
         prepopulateTables(random);
-        long startTime = System.currentTimeMillis();
-        long prevTime = System.currentTimeMillis();
-
 
         // Loop to simulate millions of queries
         for (int i = 0; i < numberOfQueries; i++) {
-            // int queryType = random.nextInt(6);  // Randomly choose the type of query to execute
-            int queryType = 1;
+            int queryType = random.nextInt(6);  // Randomly choose the type of query to execute
 
             switch (queryType) {
                 case 0:  // INSERT query
@@ -237,14 +230,7 @@ public class Main {
 
             // Print progress every 100,000 queries
             if (i % 10000 == 0){
-                long temp = System.currentTimeMillis();
-
-                long totalTime = temp - startTime;
-                totalTime /= 1000;
-                long queryTime =  temp - prevTime;
-                prevTime = temp;
-                queryTime /= 1000;
-                System.out.println("Processed " + i + " queries..." +" Time taken for 10k(s): " + queryTime+ ", Total time(s): " + totalTime);
+                System.out.println("Processed " + i + " queries...");
             }
         }
 
@@ -438,3 +424,4 @@ public class Main {
         return categories[random.nextInt(categories.length)];
     }
 }
+
