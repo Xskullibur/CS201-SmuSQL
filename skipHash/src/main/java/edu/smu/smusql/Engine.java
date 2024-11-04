@@ -264,6 +264,8 @@ public class Engine {
                 }
             }
         }
+
+        Collections.sort(selectedRows);
         return selectedRows;
     }
 
