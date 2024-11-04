@@ -9,8 +9,7 @@ public class Table {
     private Map<String, Row> data; // HashMap of Rows indexed by ID
     private Map<String, SkipList<Indexing>> secondaryIndices; // Secondary indices: column name -> SkipList of Indexing
 
-    private static final String STRING_INT_MAX = Integer.toString(Integer.MAX_VALUE);
-    private static final String STRING_INT_MIN = Integer.toString(Integer.MIN_VALUE);
+
 
     public Table() {
 
@@ -64,23 +63,23 @@ public class Table {
 
         switch (operator) {
             case ">":
-                result.addAll(indexList.getValuesGreater(new Indexing(value, STRING_INT_MAX)).stream()
+                result.addAll(indexList.getValuesGreater(new Indexing(value, "")).stream()
                         .map(Indexing::getPrimaryKey).toList());
                 break;
             case ">=":
-                result.addAll(indexList.getValuesGreaterOrEquals(new Indexing(value, STRING_INT_MIN)).stream()
+                result.addAll(indexList.getValuesGreaterOrEquals(new Indexing(value, "")).stream()
                         .map(Indexing::getPrimaryKey).toList());
                 break;
             case "<":
-                result.addAll(indexList.getValuesLesser(new Indexing(value, STRING_INT_MIN)).stream()
+                result.addAll(indexList.getValuesLesser(new Indexing(value, "")).stream()
                         .map(Indexing::getPrimaryKey).toList());
                 break;
             case "<=":
-                result.addAll(indexList.getValuesLesserOrEquals(new Indexing(value, STRING_INT_MAX)).stream()
+                result.addAll(indexList.getValuesLesserOrEquals(new Indexing(value, "")).stream()
                         .map(Indexing::getPrimaryKey).toList());
                 break;
             case "=":
-                result.addAll(indexList.getValuesEqual(new Indexing(value, STRING_INT_MIN)).stream()
+                result.addAll(indexList.getValuesEqual(new Indexing(value, "")).stream()
                         .map(Indexing::getPrimaryKey).toList());
                 break;
             case "!=":
@@ -88,7 +87,7 @@ public class Table {
                         .map(Indexing::getPrimaryKey)
                         .collect(Collectors.toCollection(TreeSet::new)); // Collect into a sorted set
 
-                List<String> equalKeys = indexList.getValuesEqual(new Indexing(value, STRING_INT_MIN)).stream()
+                List<String> equalKeys = indexList.getValuesEqual(new Indexing(value, "")).stream()
                         .map(Indexing::getPrimaryKey)
                         .toList();
 
