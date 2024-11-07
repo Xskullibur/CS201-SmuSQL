@@ -73,7 +73,7 @@ public class Table {
             // Try to parse both values as numbers for numeric comparison
             double num1 = Double.parseDouble(value1);
             double num2 = Double.parseDouble(value2);
-    
+
             switch (operator) {
                 case "=":
                     return num1 == num2;
@@ -85,13 +85,15 @@ public class Table {
                     return num1 <= num2;
                 case ">=":
                     return num1 >= num2;
+                case "!=":
+                    return num1 != num2;
                 default:
                     return false;
             }
         } catch (NumberFormatException e) {
             // If values are not numeric, fallback to lexicographical comparison
             int comparison = value1.compareTo(value2);
-    
+
             switch (operator) {
                 case "=":
                     return comparison == 0;
@@ -103,6 +105,8 @@ public class Table {
                     return comparison <= 0;
                 case ">=":
                     return comparison >= 0;
+                case "!=":
+                    return comparison != 0;
                 default:
                     return false;
             }

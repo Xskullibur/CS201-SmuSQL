@@ -1,7 +1,6 @@
 package edu.smu.smusql.hashMap;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import edu.smu.smusql.IEngine;
@@ -244,8 +243,8 @@ class HashMapEngineTest {
                         "1 \t'JOHN'\t30 \t50000 \n", result1);
         assertEquals("ID\tNAME  \tAGE\tSALARY\n" + //
                         "2 \t'JANE'\t25 \t60000 \n", result2);
-        assertEquals("id\tname\tage\tsalary\n" +
-                "2\tJane\t25\t60000\t\n" +
-                "3\tBob\t35\t45000", result3);
+        assertEquals("ID\tNAME  \tAGE\tSALARY\n" + //
+                        "3 \t'BOB' \t35 \t45000 \n" + //
+                        "2 \t'JANE'\t25 \t60000 \n", result3);
     }
 }
