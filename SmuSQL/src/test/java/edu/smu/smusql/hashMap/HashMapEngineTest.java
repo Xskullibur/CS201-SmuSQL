@@ -239,14 +239,13 @@ class HashMapEngineTest {
         String result2 = engine.executeSQL("SELECT * FROM test WHERE age < 30 OR salary > 55000");
         String result3 = engine.executeSQL("SELECT * FROM test WHERE age != 30 AND salary <= 60000");
 
-        System.out.println(result1);
-        System.out.println(result2);
-        System.out.println(result3);
-
         // Verify results
-        assertTrue(result1.contains("'JOHN'")); // age 30, salary 50000
-        assertTrue(result2.contains("'JANE")); // age 25, salary 60000
-        assertTrue(result3.contains("'JANE'")); // age 25, salary 60000
-        assertTrue(result3.contains("'BOB'")); // age 25, salary 60000
+        assertEquals("ID\tNAME  \tAGE\tSALARY\n" + 
+                        "1 \t'JOHN'\t30 \t50000 \n", result1);
+        assertEquals("ID\tNAME  \tAGE\tSALARY\n" + //
+                        "2 \t'JANE'\t25 \t60000 \n", result2);
+        assertEquals("id\tname\tage\tsalary\n" +
+                "2\tJane\t25\t60000\t\n" +
+                "3\tBob\t35\t45000", result3);
     }
 }

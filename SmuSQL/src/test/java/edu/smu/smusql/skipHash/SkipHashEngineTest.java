@@ -240,8 +240,12 @@ class SkipHashEngineTest {
         String result3 = engine.executeSQL("SELECT * FROM test WHERE age != 30 AND salary <= 60000");
 
         // Verify results
-        assertTrue(result1.contains("John")); // age 30, salary 50000
-        assertTrue(result2.contains("Jane")); // age 25, salary 60000
-        assertTrue(result3.contains("Jane")); // age 25, salary 60000
+        assertEquals("id\tname\tage\tsalary\n" +
+                "1\tJohn\t30\t50000", result1);
+        assertEquals("id\tname\tage\tsalary\n" +
+                "2\tJane\t25\t60000", result2);
+        assertEquals("id\tname\tage\tsalary\n" +
+                "2\tJane\t25\t60000\t\n" +
+                "3\tBob\t35\t45000", result3);
     }
 }
