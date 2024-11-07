@@ -13,13 +13,16 @@ import java.lang.management.MemoryMXBean;
 import java.lang.management.MemoryUsage;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumMap;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.Set;
 
 enum EngineType {
     BPLUS, HASHMAP, SKIPHASH, SKIPINDEXED
@@ -78,7 +81,8 @@ class EngineConfig {
 public class SQLBenchmark {
 
     private static final String RESULTS_DIR = "src/main/java/edu/smu/smusql/analysis/visualization/results";
-    private static final int REPORTING_INTERVAL = 10000;
+    private static final int REPORTING_INTERVAL = 1000;
+    private final UniqueIdManager idManager = new UniqueIdManager();
     private final IEngine engine;
     private final Random random;
     private final String outputFile;
@@ -287,37 +291,40 @@ public class SQLBenchmark {
     }
 
     private void prepopulateTables() {
+        // Add initial IDs to tracking
+        idManager.addInitialIds(100);
+
         // Prepopulate users with more varied data
         for (int i = 0; i < 100; i++) {
-            int id = i + 1;
+            int id = i + 1; // Initial users have IDs 1-100
             String name = "User" + id;
             int age = 20 + random.nextInt(41); // Ages 20-60
             String city = getRandomCity();
-            engine.executeSQL(
-                String.format("INSERT INTO users VALUES (%d, '%s', %d, '%s')", id, name, age,
-                    city));
+            String sql = String.format("INSERT INTO users VALUES (%d, '%s', %d, '%s')",
+                id, name, age, city);
+            engine.executeSQL(sql);
         }
 
         // Prepopulate products with more varied data
         for (int i = 0; i < 100; i++) {
-            int id = i + 1;
+            int id = i + 1; // Initial products have IDs 1-100
             String name = "Product" + id;
             double price = 50 + (random.nextDouble() * 950); // Prices $50-$1000
             String category = getRandomCategory();
-            engine.executeSQL(
-                String.format("INSERT INTO products VALUES (%d, '%s', %.2f, '%s')", id, name, price,
-                    category));
+            String sql = String.format("INSERT INTO products VALUES (%d, '%s', %.2f, '%s')",
+                id, name, price, category);
+            engine.executeSQL(sql);
         }
 
         // Prepopulate orders
         for (int i = 0; i < 100; i++) {
-            int id = i + 1;
+            int id = i + 1; // Initial orders have IDs 1-100
             int userId = random.nextInt(100) + 1;
             int productId = random.nextInt(100) + 1;
             int quantity = random.nextInt(10) + 1;
-            engine.executeSQL(
-                String.format("INSERT INTO orders VALUES (%d, %d, %d, %d)", id, userId, productId,
-                    quantity));
+            String sql = String.format("INSERT INTO orders VALUES (%d, %d, %d, %d)",
+                id, userId, productId, quantity);
+            engine.executeSQL(sql);
         }
     }
 
@@ -499,33 +506,56 @@ public class SQLBenchmark {
         return categories[random.nextInt(categories.length)];
     }
 
+    // Modify insert methods
     private void insertUser() {
-        int id = random.nextInt(10000) + 10000;
+        int id = idManager.generateUniqueUserId(random);
         String name = "User" + id;
         int age = random.nextInt(60) + 20;
         String city = getRandomCity();
-        engine.executeSQL(
-            String.format("INSERT INTO users VALUES (%d, '%s', %d, '%s')", id, name, age, city));
+        String sql = String.format("INSERT INTO users VALUES (%d, '%s', %d, '%s')",
+            id, name, age, city);
+        try {
+            engine.executeSQL(sql);
+        } catch (RuntimeException e) {
+            System.err.println("Failed to insert user with ID " + id + ": " + e.getMessage());
+        }
     }
 
     private void insertProduct() {
-        int id = random.nextInt(1000) + 10000;
+        int id = idManager.generateUniqueProductId(random);
         String name = "Product" + id;
         double price = 50 + (random.nextDouble() * 1000);
         String category = getRandomCategory();
-        engine.executeSQL(
-            String.format("INSERT INTO products VALUES (%d, '%s', %.2f, '%s')", id, name, price,
-                category));
+        String sql = String.format("INSERT INTO products VALUES (%d, '%s', %.2f, '%s')",
+            id, name, price, category);
+        try {
+            engine.executeSQL(sql);
+        } catch (RuntimeException e) {
+            System.err.println("Failed to insert product with ID " + id + ": " + e.getMessage());
+        }
     }
 
     private void insertOrder() {
-        int id = random.nextInt(10000) + 1;
-        int userId = random.nextInt(10000) + 1;
-        int productId = random.nextInt(1000) + 1;
+        int id = idManager.generateUniqueOrderId(random);
+        // Get random existing user and product IDs
+        Set<Integer> existingUserIds = idManager.getExistingUserIds();
+        Set<Integer> existingProductIds = idManager.getExistingProductIds();
+
+        // Convert sets to lists for random selection
+        List<Integer> userIdList = new ArrayList<>(existingUserIds);
+        List<Integer> productIdList = new ArrayList<>(existingProductIds);
+
+        int userId = userIdList.get(random.nextInt(userIdList.size()));
+        int productId = productIdList.get(random.nextInt(productIdList.size()));
         int quantity = random.nextInt(10) + 1;
-        engine.executeSQL(
-            String.format("INSERT INTO orders VALUES (%d, %d, %d, %d)", id, userId, productId,
-                quantity));
+
+        String sql = String.format("INSERT INTO orders VALUES (%d, %d, %d, %d)",
+            id, userId, productId, quantity);
+        try {
+            engine.executeSQL(sql);
+        } catch (RuntimeException e) {
+            System.err.println("Failed to insert order with ID " + id + ": " + e.getMessage());
+        }
     }
 
     private void updateUser() {
@@ -608,5 +638,64 @@ class MetricsCollector {
 
     public QueryMetrics getMetrics(QueryType type) {
         return metricsMap.get(type);
+    }
+}
+
+class UniqueIdManager {
+
+    // Define ID ranges for each table
+    private static final int USER_ID_MIN = 1000;
+    private static final int USER_ID_MAX = 499999;
+    private static final int PRODUCT_ID_MIN = 500000;
+    private static final int PRODUCT_ID_MAX = 999999;
+    private static final int ORDER_ID_MIN = 1000000;
+    private static final int ORDER_ID_MAX = 1999999;
+    // Track used IDs for each table
+    private final Set<Integer> usedUserIds = new HashSet<>();
+    private final Set<Integer> usedProductIds = new HashSet<>();
+    private final Set<Integer> usedOrderIds = new HashSet<>();
+
+    public synchronized int generateUniqueUserId(Random random) {
+        while (true) {
+            int id = USER_ID_MIN + random.nextInt(USER_ID_MAX - USER_ID_MIN + 1);
+            if (usedUserIds.add(id)) { // Returns true if id was added (was not present)
+                return id;
+            }
+        }
+    }
+
+    public synchronized int generateUniqueProductId(Random random) {
+        while (true) {
+            int id = PRODUCT_ID_MIN + random.nextInt(PRODUCT_ID_MAX - PRODUCT_ID_MIN + 1);
+            if (usedProductIds.add(id)) {
+                return id;
+            }
+        }
+    }
+
+    public synchronized int generateUniqueOrderId(Random random) {
+        while (true) {
+            int id = ORDER_ID_MIN + random.nextInt(ORDER_ID_MAX - ORDER_ID_MIN + 1);
+            if (usedOrderIds.add(id)) {
+                return id;
+            }
+        }
+    }
+
+    // Add initial sequential IDs used in prepopulation
+    public void addInitialIds(int count) {
+        for (int i = 1; i <= count; i++) {
+            usedUserIds.add(i);
+            usedProductIds.add(i);
+            usedOrderIds.add(i);
+        }
+    }
+
+    public Set<Integer> getExistingUserIds() {
+        return new HashSet<>(usedUserIds);
+    }
+
+    public Set<Integer> getExistingProductIds() {
+        return new HashSet<>(usedProductIds);
     }
 }

@@ -67,19 +67,37 @@ class BenchmarkVisualizer:
         display(HTML(summary.to_html()))
 
     def plot_execution_time_distribution(self):
-        """Plot distribution of execution times for different query types and engines."""
+        """Plot distribution of execution times with log scale and statistical analysis."""
         plt.figure(figsize=(15, 8))
+
+        # Create boxplot with log scale
         g = sns.boxplot(data=self.df, x='QueryType', y='AverageExecutionTime',
                         hue='EngineType', palette=self.color_palette, showfliers=False)
+
+        plt.yscale('log')  # Use log scale for better visibility
         plt.xticks(rotation=45)
-        plt.title('Execution Time Distribution by Query Type and Engine')
-        plt.ylabel('Average Execution Time (ms)')
-
-        # Rotate legend labels for better readability
+        plt.title('Execution Time Distribution by Query Type and Engine (Log Scale)')
+        plt.ylabel('Average Execution Time (ms) - Log Scale')
         plt.legend(title='Engine', bbox_to_anchor=(1.05, 1))
-
         plt.tight_layout()
         plt.show()
+
+        # Generate statistical summary
+        stats_df = self.df.groupby(['QueryType', 'EngineType'])['AverageExecutionTime'].agg([
+            'mean',
+            'median',
+            'std',
+            'min',
+            'max',
+            lambda x: x.quantile(0.25),  # Q1
+            lambda x: x.quantile(0.75),  # Q3
+        ]).round(3)
+
+        stats_df.columns = ['Mean', 'Median', 'Std', 'Min', 'Max', 'Q1', 'Q3']
+        display(HTML("<h3>Statistical Summary of Execution Times</h3>"))
+        display(HTML(stats_df.to_html()))
+
+        return stats_df
 
     def plot_success_rates(self):
         """Plot success rates for different query types and engines."""
@@ -141,12 +159,12 @@ class BenchmarkVisualizer:
                             color=engine_colors[engine_type],
                             alpha=0.7)
 
-                    # Add scatter plot for actual values with low alpha
-                    ax.scatter(engine_data['QueryCount'],
-                               memory_mb,
-                               color=engine_colors[engine_type],
-                               alpha=0.1,
-                               s=10)
+                    # # Add scatter plot for actual values with low alpha
+                    # ax.scatter(engine_data['QueryCount'],
+                    #            memory_mb,
+                    #            color=engine_colors[engine_type],
+                    #            alpha=0.1,
+                    #            s=10)
 
             ax.set_title(f'Memory Impact - {query_type}')
             ax.set_xlabel('Number of Queries')
@@ -165,14 +183,15 @@ class BenchmarkVisualizer:
         plt.show()
 
     def plot_performance_comparison(self):
-        """Create a comparative visualization of performance metrics."""
+        """Create comparative visualization with log scale where appropriate."""
         fig, axes = plt.subplots(2, 2, figsize=(20, 15))
 
-        # 1. Average execution time by engine
+        # 1. Average execution time by engine (log scale)
         avg_time = self.df.groupby('EngineType')['AverageExecutionTime'].mean()
         avg_time.plot(kind='bar', ax=axes[0, 0], color=self.color_palette)
-        axes[0, 0].set_title('Average Execution Time by Engine')
-        axes[0, 0].set_ylabel('Time (ms)')
+        axes[0, 0].set_yscale('log')
+        axes[0, 0].set_title('Average Execution Time by Engine (Log Scale)')
+        axes[0, 0].set_ylabel('Time (ms) - Log Scale')
         axes[0, 0].tick_params(axis='x', rotation=45)
 
         # 2. Query type distribution
@@ -192,15 +211,28 @@ class BenchmarkVisualizer:
         axes[1, 0].set_ylabel('Success Rate (%)')
         axes[1, 0].legend(bbox_to_anchor=(1.05, 1))
 
-        # 4. Memory usage patterns
+        # 4. Memory usage patterns (log scale)
         sns.boxplot(data=self.df, x='EngineType', y='HeapMemoryUsed',
                     ax=axes[1, 1], palette=self.color_palette, showfliers=False)
-        axes[1, 1].set_title('Memory Usage Patterns')
-        axes[1, 1].set_ylabel('Heap Memory Used (bytes)')
+        axes[1, 1].set_yscale('log')
+        axes[1, 1].set_title('Memory Usage Patterns (Log Scale)')
+        axes[1, 1].set_ylabel('Heap Memory Used (bytes) - Log Scale')
         axes[1, 1].tick_params(axis='x', rotation=45)
 
         plt.tight_layout()
         plt.show()
+
+        # Generate performance statistics
+        perf_stats = self.df.groupby('EngineType').agg({
+            'AverageExecutionTime': ['mean', 'median', 'std'],
+            'SuccessRate': 'mean',
+            'HeapMemoryUsed': ['mean', 'median', 'std']
+        }).round(3)
+
+        display(HTML("<h3>Performance Statistics by Engine</h3>"))
+        display(HTML(perf_stats.to_html()))
+
+        return perf_stats
 
     def plot_query_time_trends(self):
         """
@@ -259,47 +291,61 @@ class BenchmarkVisualizer:
         plt.show()
 
     def plot_range_vs_equals_comparison(self):
-        """
-        Compare performance of range-based vs equals-based operations separately for SELECT and UPDATE.
-        Shows two plots:
-        1. RANGE_SELECT vs EQUALS_SELECT
-        2. RANGE_UPDATE vs EQUALS_UPDATE
-        """
-        # Create figure with two subplots
+        """Compare range vs equals operations with log scale and statistics."""
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
 
-        # Filter for SELECT and UPDATE operations
         select_ops = self.df[self.df['QueryType'].str.contains('SELECT')]
         update_ops = self.df[self.df['QueryType'].str.contains('UPDATE')]
 
-        # Plot SELECT operations comparison
+        # Plot SELECT operations with log scale
         sns.boxplot(data=select_ops,
                     x='EngineType',
                     y='AverageExecutionTime',
                     hue='QueryType',
                     palette=sns.color_palette("Set2", 2),
                     ax=ax1)
-        ax1.set_title('SELECT Operations: Range vs Equals')
+        ax1.set_yscale('log')
+        ax1.set_title('SELECT Operations: Range vs Equals (Log Scale)')
         ax1.set_xticklabels(ax1.get_xticklabels(), rotation=45)
         ax1.legend(bbox_to_anchor=(1.05, 1))
-        ax1.set_ylabel('Average Execution Time (ms)')
+        ax1.set_ylabel('Average Execution Time (ms) - Log Scale')
         ax1.set_xlabel('Engine Type')
 
-        # Plot UPDATE operations comparison
+        # Plot UPDATE operations with log scale
         sns.boxplot(data=update_ops,
                     x='EngineType',
                     y='AverageExecutionTime',
                     hue='QueryType',
                     palette=sns.color_palette("Set2", 2),
                     ax=ax2)
-        ax2.set_title('UPDATE Operations: Range vs Equals')
+        ax2.set_yscale('log')
+        ax2.set_title('UPDATE Operations: Range vs Equals (Log Scale)')
         ax2.set_xticklabels(ax2.get_xticklabels(), rotation=45)
         ax2.legend(bbox_to_anchor=(1.05, 1))
-        ax2.set_ylabel('Average Execution Time (ms)')
+        ax2.set_ylabel('Average Execution Time (ms) - Log Scale')
         ax2.set_xlabel('Engine Type')
 
         plt.tight_layout()
         plt.show()
+
+        # Generate statistical comparison
+        stats_dfs = []
+        for ops, op_type in [(select_ops, 'SELECT'), (update_ops, 'UPDATE')]:
+            stats_df = ops.groupby(['EngineType', 'QueryType'])['AverageExecutionTime'].agg([
+                'mean',
+                'median',
+                'std',
+                'min',
+                'max',
+                lambda x: x.quantile(0.25),  # Q1
+                lambda x: x.quantile(0.75),  # Q3
+            ]).round(3)
+            stats_df.columns = ['Mean', 'Median', 'Std', 'Min', 'Max', 'Q1', 'Q3']
+            display(HTML(f"<h3>Statistical Summary for {op_type} Operations</h3>"))
+            display(HTML(stats_df.to_html()))
+            stats_dfs.append(stats_df)
+
+        return stats_dfs
 
     def plot_configuration_impact(self):
         """Compare performance between different configurations of the same engine."""

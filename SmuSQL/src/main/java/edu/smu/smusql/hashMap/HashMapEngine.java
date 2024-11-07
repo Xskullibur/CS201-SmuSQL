@@ -9,10 +9,10 @@ public class HashMapEngine implements IEngine {
 
     public String executeSQL(String query) {
         String[] tokens = query.trim().split("\\s+");
-        
+
         // Capitalize all tokens in the query
         tokens = capitalizeTokens(tokens);
-        
+
         String command = tokens[0].toUpperCase();
 
         switch (command) {
@@ -81,7 +81,7 @@ public class HashMapEngine implements IEngine {
             row.put(columns.get(i), values.get(i));
         }
         tbl.addRow(row);
-        return "Row inserted into " + tableName;
+        return "1 row inserted successfully";
     }
 
     // Updated select method with proper AND/OR logic and inequality handling
@@ -124,21 +124,23 @@ public class HashMapEngine implements IEngine {
         }
 
         // Fetch rows matching condition1 with inequality handling
-        List<Map<String, String>> rowsMatchingCondition1 = tbl.selectWithCondition(condition1Column, condition1Operator, condition1Value);
+        List<Map<String, String>> rowsMatchingCondition1 = tbl.selectWithCondition(condition1Column, condition1Operator,
+                condition1Value);
 
         if (isAnd && condition2Column != null) {
             // Apply AND logic: Return only rows that satisfy both conditions
             for (Map<String, String> row : rowsMatchingCondition1) {
                 // Ensure row satisfies both conditions
                 if (compare(row.get(condition2Column), condition2Operator, condition2Value)) {
-                    resultSet.add(row);  // Add row to result set only if both conditions are met
+                    resultSet.add(row); // Add row to result set only if both conditions are met
                 }
             }
         } else if (isOr && condition2Column != null) {
             // Apply OR logic: Return rows that satisfy either of the conditions
-            List<Map<String, String>> rowsMatchingCondition2 = tbl.selectWithCondition(condition2Column, condition2Operator, condition2Value);
-            resultSet.addAll(rowsMatchingCondition1);  // Add condition1 rows
-            resultSet.addAll(rowsMatchingCondition2);  // Add condition2 rows (duplicates automatically avoided by Set)
+            List<Map<String, String>> rowsMatchingCondition2 = tbl.selectWithCondition(condition2Column,
+                    condition2Operator, condition2Value);
+            resultSet.addAll(rowsMatchingCondition1); // Add condition1 rows
+            resultSet.addAll(rowsMatchingCondition2); // Add condition2 rows (duplicates automatically avoided by Set)
         } else {
             // If no AND/OR, just return rows that match condition1
             resultSet.addAll(rowsMatchingCondition1);
@@ -153,21 +155,21 @@ public class HashMapEngine implements IEngine {
         if (tbl == null) {
             return "ERROR: No such table: " + tableName;
         }
-    
+
         String updateColumn = tokens[3];
         String updateValue = tokens[5];
-    
+
         String condition1Column = tokens[7];
         String condition1Operator = tokens[8];
         String condition1Value = tokens[9];
-    
+
         String condition2Column = null;
         String condition2Operator = null;
         String condition2Value = null;
-    
+
         boolean isAnd = Arrays.asList(tokens).contains("AND");
         boolean isOr = Arrays.asList(tokens).contains("OR");
-    
+
         if (isAnd || isOr) {
             if (tokens.length > 10) {
                 condition2Column = tokens[11];
@@ -177,14 +179,15 @@ public class HashMapEngine implements IEngine {
                 return "ERROR: Invalid query, missing second condition for AND/OR.";
             }
         }
-    
+
         Map<String, String> updates = new HashMap<>();
         updates.put(updateColumn, updateValue);
-    
+
         // Fetch rows matching condition1 with inequality handling
-        List<Map<String, String>> rowsMatchingCondition1 = tbl.selectWithCondition(condition1Column, condition1Operator, condition1Value);
+        List<Map<String, String>> rowsMatchingCondition1 = tbl.selectWithCondition(condition1Column, condition1Operator,
+                condition1Value);
         int updatedCount = 0;
-    
+
         if (isAnd && condition2Column != null) {
             for (Map<String, String> row : rowsMatchingCondition1) {
                 if (compare(row.get(condition2Column), condition2Operator, condition2Value)) {
@@ -194,7 +197,8 @@ public class HashMapEngine implements IEngine {
             }
         } else if (isOr && condition2Column != null) {
             // Fetch rows matching condition2 with inequality handling
-            List<Map<String, String>> rowsMatchingCondition2 = tbl.selectWithCondition(condition2Column, condition2Operator, condition2Value);
+            List<Map<String, String>> rowsMatchingCondition2 = tbl.selectWithCondition(condition2Column,
+                    condition2Operator, condition2Value);
             for (Map<String, String> row : rowsMatchingCondition1) {
                 tbl.updateRow(row, updates);
                 updatedCount++;
@@ -208,8 +212,12 @@ public class HashMapEngine implements IEngine {
         } else {
             updatedCount = tbl.updateWithCondition(condition1Column, condition1Operator, condition1Value, updates);
         }
-    
-        return updatedCount + " row(s) updated.";
+
+        if (updatedCount == 0) {
+            return updatedCount + " row(s) updated, not found";
+        }
+
+        return updatedCount + " row(s) updated successfully";
     }
 
     public String delete(String[] tokens) {
@@ -236,7 +244,8 @@ public class HashMapEngine implements IEngine {
             condition2Value = tokens[10];
         }
 
-        List<Map<String, String>> rowsMatchingCondition1 = tbl.selectWithCondition(condition1Column, condition1Operator, condition1Value);
+        List<Map<String, String>> rowsMatchingCondition1 = tbl.selectWithCondition(condition1Column, condition1Operator,
+                condition1Value);
         int deletedCount = 0;
 
         if (isAnd && condition2Column != null) {
@@ -248,7 +257,8 @@ public class HashMapEngine implements IEngine {
             }
         } else if (isOr && condition2Column != null) {
             // Fetch rows matching condition2
-            List<Map<String, String>> rowsMatchingCondition2 = tbl.selectWithCondition(condition2Column, condition2Operator, condition2Value);
+            List<Map<String, String>> rowsMatchingCondition2 = tbl.selectWithCondition(condition2Column,
+                    condition2Operator, condition2Value);
             for (Map<String, String> row : rowsMatchingCondition1) {
                 tbl.deleteRow(row); // Delete rows matching condition1
                 deletedCount++;
@@ -263,7 +273,11 @@ public class HashMapEngine implements IEngine {
             deletedCount = tbl.deleteWithCondition(condition1Column, condition1Operator, condition1Value);
         }
 
-        return deletedCount + " row(s) deleted.";
+        if (deletedCount == 0) {
+            return deletedCount + " row(s) deleted, not found";
+        }
+
+        return deletedCount + " row(s) deleted successfully";
     }
 
     // Comparison helper for inequality conditions
@@ -348,28 +362,32 @@ public class HashMapEngine implements IEngine {
 
         // Measure the longest column value to determine spacing
         for (Map<String, String> row : rows) {
-                for (int i = 0; i < numberOfColumns; i++) {
-                    String columnValue = row.get(columns.get(i));
-                    if (columnValue != null) {
-                        columnWidths[i] = Math.max(columnWidths[i], columnValue.length()); // Take the highest length to ensure correct spacing
-                    }
+            for (int i = 0; i < numberOfColumns; i++) {
+                String columnValue = row.get(columns.get(i));
+                if (columnValue != null) {
+                    columnWidths[i] = Math.max(columnWidths[i], columnValue.length()); // Take the highest length to
+                                                                                       // ensure correct spacing
                 }
             }
+        }
 
         // Print column names
         for (int i = 0; i < numberOfColumns; i++) {
-            result.append(String.format("%-" + columnWidths[i] + "s", columns.get(i))); // "%-" is for left aligning and the "s" indicates its a String
-            if (i < numberOfColumns - 1) result.append(" | "); // stop adding the line for last column
+            result.append(String.format("%-" + columnWidths[i] + "s", columns.get(i))); // "%-" is for left aligning and
+                                                                                        // the "s" indicates its a
+                                                                                        // String
+            if (i < numberOfColumns - 1)
+                result.append('\t'); // stop adding the line for last column
         }
         result.append("\n");
-        result.append("-".repeat(result.length()) + "\n"); // Creating line to separate column heads and column values
 
         // Print selected rows
         for (Map<String, String> row : rows) {
             for (int i = 0; i < columns.size(); i++) {
                 String value = row.get(columns.get(i));
                 result.append(String.format("%-" + columnWidths[i] + "s", value != null ? value : "NULL"));
-            if (i < numberOfColumns - 1) result.append(" | ");
+                if (i < numberOfColumns - 1)
+                    result.append('\t');
             }
             result.append("\n");
         }
