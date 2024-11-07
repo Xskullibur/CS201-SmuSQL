@@ -291,7 +291,7 @@ private Map<Integer, Map<String, Object>> retrieveFilteredRows(List<Integer> fil
 
 #### Optimized Implementation
 
-![alt text](/SmuSQL/src/main/java/edu/smu/smusql/bplustreeA/src/retrieveFilteredRows/retrieveFilteredRows_before.png)
+![alt text](/SmuSQL/src/main/java/edu/smu/smusql/bplustreeA/src/retrieveFilteredRows/retrieveFilteredRows_after.png)
 
 Key Improvements:
 
