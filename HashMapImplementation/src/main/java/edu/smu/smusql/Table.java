@@ -85,6 +85,8 @@ public class Table {
                     return num1 <= num2;
                 case ">=":
                     return num1 >= num2;
+                case "!=":
+                    return num1 != num2;
                 default:
                     return false;
             }
@@ -103,6 +105,8 @@ public class Table {
                     return comparison <= 0;
                 case ">=":
                     return comparison >= 0;
+                case "!=":
+                    return comparison != 0;
                 default:
                     return false;
             }
