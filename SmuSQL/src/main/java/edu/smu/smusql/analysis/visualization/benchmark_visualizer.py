@@ -67,37 +67,89 @@ class BenchmarkVisualizer:
         display(HTML(summary.to_html()))
 
     def plot_execution_time_distribution(self):
-        """Plot distribution of execution times with log scale and statistical analysis."""
-        plt.figure(figsize=(15, 8))
+        """Plot distribution of execution times for each query type in separate subplots using linear scale."""
+        query_types = sorted(self.df['QueryType'].unique())
+        num_query_types = len(query_types)
 
-        # Create boxplot with log scale
-        g = sns.boxplot(data=self.df, x='QueryType', y='AverageExecutionTime',
-                        hue='EngineType', palette=self.color_palette, showfliers=False)
+        # Calculate subplot layout (2 columns)
+        num_cols = 3
+        num_rows = (num_query_types + num_cols - 1) // num_cols
 
-        plt.yscale('log')  # Use log scale for better visibility
-        plt.xticks(rotation=45)
-        plt.title('Execution Time Distribution by Query Type and Engine (Log Scale)')
-        plt.ylabel('Average Execution Time (ms) - Log Scale')
-        plt.legend(title='Engine', bbox_to_anchor=(1.05, 1))
+        # Create figure and subplots
+        fig, axes = plt.subplots(num_rows, num_cols,
+                                 figsize=(15, 5 * num_rows),
+                                 squeeze=False)
+        axes_flat = axes.flatten()
+
+        # Store statistics for each query type
+        stats_by_type = {}
+
+        # Create boxplot for each query type
+        for idx, query_type in enumerate(query_types):
+            ax = axes_flat[idx]
+            query_data = self.df[self.df['QueryType'] == query_type]
+
+            # Create boxplot
+            sns.boxplot(data=query_data,
+                        x='EngineType',
+                        y='AverageExecutionTime',
+                        palette=self.color_palette,
+                        showfliers=True,  # Show outliers to see full distribution
+                        ax=ax)
+
+            # Calculate plot specific statistics
+            mean_exec_time = query_data['AverageExecutionTime'].mean()
+            std_exec_time = query_data['AverageExecutionTime'].std()
+
+            # Set y-axis limit to mean + 2*std to focus on main distribution
+            # while still showing some outliers
+            ax.set_ylim(0, mean_exec_time + 2 * std_exec_time)
+
+            # Customize subplot
+            ax.set_title(f'{query_type} Execution Time Distribution')
+            ax.set_xlabel('Engine Type')
+            ax.set_ylabel('Time (ms)')
+            ax.tick_params(axis='x', rotation=45)
+
+            # Add mean line
+            ax.axhline(y=mean_exec_time, color='r', linestyle='--', alpha=0.3)
+
+            # Calculate statistics for this query type
+            stats = query_data.groupby('EngineType')['AverageExecutionTime'].agg([
+                'count',
+                'mean',
+                'median',
+                'std',
+                'min',
+                'max',
+                lambda x: x.quantile(0.25),  # Q1
+                lambda x: x.quantile(0.75),  # Q3
+                lambda x: len(x[x > (x.mean() + 2 * x.std())]),  # Count of outliers
+            ]).round(3)
+            stats.columns = ['Count', 'Mean', 'Median', 'Std', 'Min', 'Max', 'Q1', 'Q3', 'Outliers']
+            stats_by_type[query_type] = stats
+
+            # Add mean value as text
+            ax.text(0.02, 0.98, f'Mean: {mean_exec_time:.2f}ms\nStd: {std_exec_time:.2f}ms',
+                    transform=ax.transAxes,
+                    verticalalignment='top',
+                    bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+
+        # Remove any unused subplots
+        for idx in range(num_query_types, len(axes_flat)):
+            fig.delaxes(axes_flat[idx])
+
         plt.tight_layout()
         plt.show()
 
-        # Generate statistical summary
-        stats_df = self.df.groupby(['QueryType', 'EngineType'])['AverageExecutionTime'].agg([
-            'mean',
-            'median',
-            'std',
-            'min',
-            'max',
-            lambda x: x.quantile(0.25),  # Q1
-            lambda x: x.quantile(0.75),  # Q3
-        ]).round(3)
+        # Display statistics for each query type
+        for query_type, stats in stats_by_type.items():
+            display(HTML(f"<h3>Statistical Summary for {query_type}</h3>"))
+            display(HTML(stats.style
+                         .background_gradient(subset=['Mean', 'Median', 'Std'])
+                         .to_html()))
 
-        stats_df.columns = ['Mean', 'Median', 'Std', 'Min', 'Max', 'Q1', 'Q3']
-        display(HTML("<h3>Statistical Summary of Execution Times</h3>"))
-        display(HTML(stats_df.to_html()))
-
-        return stats_df
+        return stats_by_type
 
     def plot_success_rates(self):
         """Plot success rates for different query types and engines."""
