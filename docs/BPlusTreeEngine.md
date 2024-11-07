@@ -224,7 +224,7 @@ performance across different dataset sizes
 
 #### Original Implementation Issues
 
-![alt text](\BPlusTree\src\main\java\edu\smu\smusql\bplustreeA\src\combineResults\combineResults_before.png)
+![alt text](/BPlusTree/src/main/java/edu/smu/smusql/bplustreeA/src/combineResults/combineResults_before.png)
 
 ```java
 private List<Integer> combineResults(List<Integer> leftResult, List<Integer> rightResult,
