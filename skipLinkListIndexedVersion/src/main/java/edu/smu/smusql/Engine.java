@@ -1,15 +1,17 @@
 package edu.smu.smusql;
 
 import java.util.*;
-import java.util.stream.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class Engine {
 
     Map<String, Table> data = new HashMap<>();
 
     public String executeSQL(String query) {
-        String[] tokens = query.trim().split("\\s+");
-        String command = tokens[0].toUpperCase(); // Commands are always case-insensitive
+
+        String[] tokens = tokenize(query);
+        String command = tokens[0];
 
         switch (command) {
             case "CREATE":
@@ -27,36 +29,68 @@ public class Engine {
         }
     }
 
+    public void clearDatabase() {
+        data.clear();
+    }
+
     public String insert(String[] tokens) {
         // `INSERT INTO table_name VALUES (value1, value2, ...)`
 
         String tableName = tokens[2].toLowerCase(); // Ensure table names are case-insensitive
         String valueList = queryBetweenParentheses(tokens, 4); // Get values list between parentheses
-        List<String> values = Arrays.asList(valueList.split(",")); // These are the values in the row to be inserted.
+        List<String> values = Arrays.stream(valueList.split(","))
+                .map(String::trim)
+                .map(this::removeSurroundingQuotes) // Remove surrounding quotes from each value
+                .toList();
         Table t = data.get(tableName);
-        if(t == null){
-            return "table " + tableName + " does not exist";
+
+        if (t == null) {
+            return "Table " + tableName + " does not exist";
         }
+
         List<String> cols = t.getColumns();
         Map<String, String> colsVals = new HashMap<>();
-        // id is handled separately
+
+        // Check for invalid column count
         if (cols.size() != values.size()) {
-            return "invalid insert statement";
+            return "Invalid insert statement: number of values does not match number of columns";
         }
 
+        // Extract primary key (assuming the first column as primary key) and check for
+        // duplicates
+        String primaryKey = values.get(0);
+        if (t.getRow(primaryKey) != null) { // Assuming Table has a method `rowExists` to check for primary key
+                                            // existence
+            return "0 row inserted, primary key already exists";
+        }
+
+        // Map columns to values
         for (int i = 0; i < cols.size(); i++) {
-            colsVals.put(cols.get(i).toLowerCase(), values.get(i));
+            colsVals.put(cols.get(i).toLowerCase(), values.get(i).trim());
         }
-        t.insertRow(values.get(0), colsVals);
 
-        return "inserted into " + tableName + " successfully";
+        // Insert row
+        t.insertRow(primaryKey, colsVals);
+
+        return "1 row inserted successfully";
+    }
+
+    // Helper method to remove surrounding quotes from a string
+    private String removeSurroundingQuotes(String value) {
+        if (value.startsWith("'") && value.endsWith("'") || value.startsWith("\"") && value.endsWith("\"")) {
+            return value.substring(1, value.length() - 1); // Remove the surrounding quotes
+        }
+        return value; // Return the value as-is if it has no surrounding quotes
     }
 
     public String delete(String[] tokens) {
-
         // `DELETE FROM table_name WHERE condition1 AND/OR condition2`
 
         String tableName = tokens[2].toLowerCase(); // Ensure table names are case-insensitive
+        Table t = data.get(tableName);
+        if (t == null) {
+            return "Table " + tableName + " does not exist";
+        }
 
         List<String[]> whereClauseConditions = new ArrayList<>(); // Array for storing conditions from the where clause.
 
@@ -70,48 +104,35 @@ public class Engine {
                     // Add condition with operator (column, operator, value)
                     String column = tokens[i - 1].toLowerCase(); // Handle column name case-insensitively
                     String operator = tokens[i];
-                    String value = tokens[i + 1];
+                    String value = removeSurroundingQuotes(tokens[i + 1]);
                     whereClauseConditions.add(new String[] { null, column, operator, value });
                     i += 1; // Skip the value since it has been processed
                 }
             }
         }
-        Table t = data.get(tableName);
+
         int rowCount = 0;
+        List<String> keysToDelete;
+
+        // Determine keys to delete based on conditions
         if (whereClauseConditions.size() == 1) {
             String[] requirements = whereClauseConditions.get(0);
-            List<String> keysToDelete;
-            if (requirements[1].equalsIgnoreCase("id")) {
-                keysToDelete = t.returnKeysByRequirementsOnId(requirements[2], requirements[3]);
-            } else {
-                keysToDelete = t.returnKeysByRequirementsOnIndex(requirements[1], requirements[2],
-                        requirements[3]);
-            }
-
-            for (String id : keysToDelete) {
-                rowCount++;
-                t.deleteRow(id);
-            }
-        } else {
+            keysToDelete = requirements[1].equalsIgnoreCase("id")
+                    ? t.returnKeysByRequirementsOnId(requirements[2], requirements[3])
+                    : t.returnKeysByRequirementsOnIndex(requirements[1], requirements[2], requirements[3]);
+        } else if (whereClauseConditions.size() > 1) {
+            // Handling complex conditions with AND/OR
             String logic = whereClauseConditions.get(1)[0];
             String[] reqs1 = whereClauseConditions.get(0);
             String[] reqs2 = whereClauseConditions.get(2);
 
-            List<String> keys1 = new ArrayList<>();
+            List<String> keys1 = reqs1[1].equalsIgnoreCase("id")
+                    ? t.returnKeysByRequirementsOnId(reqs1[2], reqs1[3])
+                    : t.returnKeysByRequirementsOnIndex(reqs1[1], reqs1[2], reqs1[3]);
 
-            if (reqs1[1].equalsIgnoreCase("ID")) {
-                keys1.addAll(t.returnKeysByRequirementsOnId(reqs1[2], reqs1[3]));
-            } else {
-                keys1.addAll(t.returnKeysByRequirementsOnIndex(reqs1[1], reqs1[2], reqs1[3]));
-            }
-
-            List<String> keys2 = new ArrayList<>();
-
-            if (reqs2[1].equalsIgnoreCase("ID")) {
-                keys2.addAll(t.returnKeysByRequirementsOnId(reqs2[2], reqs2[3]));
-            } else {
-                keys2.addAll(t.returnKeysByRequirementsOnIndex(reqs2[1], reqs2[2], reqs2[3]));
-            }
+            List<String> keys2 = reqs2[1].equalsIgnoreCase("id")
+                    ? t.returnKeysByRequirementsOnId(reqs2[2], reqs2[3])
+                    : t.returnKeysByRequirementsOnIndex(reqs2[1], reqs2[2], reqs2[3]);
 
             Set<String> set1 = new HashSet<>(keys1);
             Set<String> set2 = new HashSet<>(keys2);
@@ -121,13 +142,27 @@ public class Engine {
             } else {
                 set1.retainAll(set2);
             }
+            keysToDelete = new ArrayList<>(set1);
+        } else {
+            // No WHERE clause (delete all rows)
+            keysToDelete = t.getAllKeys();
+        }
 
-            for (String id : set1) {
+        // Perform deletion
+        for (String id : keysToDelete) {
+            if (t.deleteRow(id)) { // Assuming deleteRow returns true if a row is deleted
                 rowCount++;
-                t.deleteRow(id);
             }
         }
-        return rowCount + " rows deleted successfully";
+
+        // Return appropriate message
+        if (rowCount == 1) {
+            return "1 row(s) deleted successfully";
+        } else if (rowCount > 1) {
+            return rowCount + " row(s) deleted successfully";
+        } else {
+            return "0 row(s) deleted, not found";
+        }
     }
 
     public String select(String[] tokens) {
@@ -222,78 +257,72 @@ public class Engine {
         }
 
         // Format the results for display
-        
 
         return formatSelectResults(resultRows, t.getColumns());
     }
 
     public String update(String[] tokens) {
-        // `UPDATE table_name SET update WHERE condition1 AND/OR condition2`
-        // `UPDATE student SET age = 25 WHERE id = 1`
+        // `UPDATE table_name SET column1 = value1, column2 = value2, ... WHERE
+        // condition1 AND/OR condition2`
 
         String tableName = tokens[1].toLowerCase(); // Ensure table names are case-insensitive
-        String setColumn = tokens[3].toLowerCase(); // Handle column name case-insensitively
-        String newValue = tokens[5];
+        Table t = data.get(tableName);
+        if (t == null) {
+            return "Table " + tableName + " does not exist";
+        }
+
+        Map<String, String> updates = new HashMap<>();
+        int setIndex = 3;
+
+        // Parse the SET clause to gather columns and values
+        while (!tokens[setIndex].equalsIgnoreCase("WHERE") && setIndex < tokens.length) {
+            String column = tokens[setIndex].toLowerCase(); // Handle column name case-insensitively
+            String value = tokens[setIndex + 2];
+            updates.put(column, removeSurroundingQuotes(value)); // Remove surrounding quotes
+            setIndex += 3; // Move to the next column-value pair
+        }
 
         // Initialize whereClauseConditions list
         List<String[]> whereClauseConditions = new ArrayList<>();
 
-        // Parse WHERE clause conditions
-        if (tokens.length > 6 && tokens[6].equalsIgnoreCase("WHERE")) {
-            for (int i = 6; i < tokens.length; i++) {
+        // Parse WHERE clause conditions if present
+        if (setIndex < tokens.length && tokens[setIndex].equalsIgnoreCase("WHERE")) {
+            for (int i = setIndex + 1; i < tokens.length; i++) {
                 if (tokens[i].equalsIgnoreCase("AND") || tokens[i].equalsIgnoreCase("OR")) {
-                    // Add AND/OR conditions
                     whereClauseConditions.add(new String[] { tokens[i].toUpperCase(), null, null, null });
                 } else if (isOperator(tokens[i])) {
-                    // Add condition with operator (column, operator, value)
-                    String column = tokens[i - 1].toLowerCase(); // Handle column name case-insensitively
+                    String column = tokens[i - 1].toLowerCase();
                     String operator = tokens[i];
                     String value = tokens[i + 1];
-                    whereClauseConditions.add(new String[] { null, column, operator, value });
+                    whereClauseConditions.add(new String[] { null, column, operator, removeSurroundingQuotes(value) });
                     i += 1; // Skip the value since it has been processed
                 }
             }
         }
 
-        Table t = data.get(tableName);
+        // Determine rows to update based on conditions
         int rowCount = 0;
+        List<String> keysToUpdate;
+
         if (whereClauseConditions.size() == 1) {
-            String[] requirements = whereClauseConditions.get(0);
-            List<String> keysToUpdate;
-            if (requirements[1].equalsIgnoreCase("id")) {
-                keysToUpdate = t.returnKeysByRequirementsOnId(requirements[2], requirements[3]);
-            } else {
-                keysToUpdate = t.returnKeysByRequirementsOnIndex(requirements[1], requirements[2],
-                        requirements[3]);
-            }
-
-            for (String id : keysToUpdate) {
-                Map<String, String> currData = t.getRow(id).getData();
-                currData.put(setColumn, newValue); // Handle column name case-insensitively
-                t.updateRow(id, currData);
-
-                rowCount++;
-            }
+            // Single condition case
+            String[] condition = whereClauseConditions.get(0);
+            keysToUpdate = condition[1].equalsIgnoreCase("id")
+                    ? t.returnKeysByRequirementsOnId(condition[2], condition[3])
+                    : t.returnKeysByRequirementsOnIndex(condition[1], condition[2], condition[3]);
         } else {
+            // Complex conditions with AND/OR
             String logic = whereClauseConditions.get(1)[0];
-            String[] reqs1 = whereClauseConditions.get(0);
-            String[] reqs2 = whereClauseConditions.get(2);
+            String[] condition1 = whereClauseConditions.get(0);
+            String[] condition2 = whereClauseConditions.get(2);
 
-            List<String> keys1 = new ArrayList<>();
+            List<String> keys1 = condition1[1].equalsIgnoreCase("ID")
+                    ? t.returnKeysByRequirementsOnId(condition1[2], condition1[3])
+                    : t.returnKeysByRequirementsOnIndex(condition1[1], condition1[2], condition1[3]);
 
-            if (reqs1[1].equalsIgnoreCase("ID")) {
-                keys1.addAll(t.returnKeysByRequirementsOnId(reqs1[2], reqs1[3]));
-            } else {
-                keys1.addAll(t.returnKeysByRequirementsOnIndex(reqs1[1], reqs1[2], reqs1[3]));
-            }
-
-            List<String> keys2 = new ArrayList<>();
-
-            if (reqs2[1].equalsIgnoreCase("ID")) {
-                keys2.addAll(t.returnKeysByRequirementsOnId(reqs2[2], reqs2[3]));
-            } else {
-                keys2.addAll(t.returnKeysByRequirementsOnIndex(reqs2[1], reqs2[2], reqs2[3]));
-            }
+            List<String> keys2 = condition2[1].equalsIgnoreCase("ID")
+                    ? t.returnKeysByRequirementsOnId(condition2[2], condition2[3])
+                    : t.returnKeysByRequirementsOnIndex(condition2[1], condition2[2], condition2[3]);
 
             Set<String> set1 = new HashSet<>(keys1);
             Set<String> set2 = new HashSet<>(keys2);
@@ -304,28 +333,63 @@ public class Engine {
                 set1.retainAll(set2);
             }
 
-            for (String id : set1) {
-                Map<String, String> currData = t.getRow(id).getData();
-                currData.put(setColumn, newValue); // Handle column name case-insensitively
-                t.updateRow(id, currData);
-                rowCount++;
-            }
+            keysToUpdate = new ArrayList<>(set1);
         }
-        return rowCount + " rows updated successfully";
+
+        // Apply the updates to each selected row
+        for (String id : keysToUpdate) {
+            Map<String, String> currData = t.getRow(id).getData();
+            currData.putAll(updates); // Apply all updates to the row
+            t.updateRow(id, currData); // Assuming this updates the row in the table
+            rowCount++;
+        }
+
+        // Return the appropriate message
+        if (rowCount == 1) {
+            return "1 row(s) updated successfully";
+        } else if (rowCount > 1) {
+            return rowCount + " row(s) updated successfully";
+        } else {
+            return "0 row(s) updated, not found";
+        }
     }
 
     public String create(String[] tokens) {
-        // example for reference CREATE TABLE student (id, name, age, gpa, deans_list)
+        // Example for reference CREATE TABLE student (id, name, age, gpa, deans_list)
 
-        String[] colVals = Arrays.stream(queryBetweenParentheses(tokens, 3).toLowerCase().split(",")).map(x -> x.trim())
-                .toArray(String[]::new);
         String name = tokens[2].toLowerCase().trim(); // Ensure table names are case-insensitive
+
+        // Check if the table already exists in the `data` map
+        if (data.containsKey(name)) {
+            return "ERROR: Table " + name + " already exists.";
+        }
+
+        String[] colVals = Arrays.stream(queryBetweenParentheses(tokens, 3).toLowerCase().split(","))
+                .map(x -> x.trim())
+                .toArray(String[]::new);
+
         Table created = new Table(name, Arrays.asList(colVals));
         data.put(name, created);
         return "Table " + name + " created successfully";
     }
 
     // Helper methods
+
+
+    public static String[] tokenize(String input) {
+        List<String> tokens = new ArrayList<>();
+        Matcher m = Pattern.compile("'([^']*)'|\"([^\"]*)\"|(\\S+)").matcher(input);
+        while (m.find()) {
+            if (m.group(1) != null) {
+                tokens.add("'" + m.group(1) + "'");
+            } else if (m.group(2) != null) {
+                tokens.add("\"" + m.group(2) + "\"");
+            } else {
+                tokens.add(m.group(3));
+            }
+        }
+        return tokens.toArray(new String[0]);
+    }
     private String queryBetweenParentheses(String[] tokens, int startIndex) {
         StringBuilder result = new StringBuilder();
         for (int i = startIndex; i < tokens.length; i++) {
@@ -336,7 +400,8 @@ public class Engine {
 
     // Helper method to determine if a string is an operator
     private boolean isOperator(String token) {
-        return token.equals("=") || token.equals(">") || token.equals("<") || token.equals(">=") || token.equals("<=");
+        return token.equals("=") || token.equals(">") || token.equals("<") || token.equals(">=") || token.equals("<=")
+                || token.equals("!=");
     }
 
     // Helper method to format the results of a SELECT query

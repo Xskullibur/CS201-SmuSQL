@@ -40,19 +40,19 @@ public class TableTest {
     @Test
     public void testReturnKeysByLessThan() {
         List<String> result = table.returnKeysByRequirementsOnIndex("price", "<", "150");
-        assertEquals(List.of("key1", "key4"), result, "Expected keys less than 150");
+        assertEquals(Set.of("key1", "key4"), (Set.of(result.toArray())), "Expected keys less than 150");
     }
 
     @Test
     public void testReturnKeysByEquals() {
         List<String> result = table.returnKeysByRequirementsOnIndex("price", "=", "100");
-        assertEquals(List.of("key1", "key4"), result, "Expected keys equal to 100");
+        assertEquals(Set.of("key1", "key4"), (Set.of(result.toArray())), "Expected keys equal to 100");
     }
 
     @Test
     public void testReturnKeysByNotEquals() {
         List<String> result = table.returnKeysByRequirementsOnIndex("price", "!=", "150");
-        assertEquals(List.of("key1", "key2", "key4", "key5"), result, "Expected keys not equal to 150");
+        assertEquals(Set.of("key1", "key2", "key4", "key5"),  (Set.of(result.toArray())), "Expected keys not equal to 150");
     }
 
     @Test

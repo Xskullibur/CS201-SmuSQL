@@ -275,6 +275,25 @@ public class SkipList<E extends Comparable<E>> implements Iterable<E> {
         return result;
     }
 
+    public List<E> getValuesNotEquals(E value) {
+        List<E> result = new ArrayList<>();
+        Node<E> current = head;
+
+        // Step 1: Descend to the lowest level
+        while (current.down != null) {
+            current = current.down;
+        }
+
+        // Step 2: Collect values less than or equal to the given value
+        while (current.next != null && current.next.value.compareTo(value) != 0) {
+            result.add(current.next.value); // Add values less than or equal to the given value
+            current = current.next;
+        }
+
+        return result;
+    }
+
+
     // public List<E> getValuesBetween(E start, E end) {
     // List<E> result = new ArrayList<>();
     // Node<E> current = head;
