@@ -1,6 +1,7 @@
 package edu.smu.smusql;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class Table {
     private String name; // Table name
@@ -26,6 +27,14 @@ public class Table {
 
     public String getName() {
         return name;
+    }
+
+    public List<String> getAllKeys(){
+        List<String> result = new ArrayList<>();
+        for(Row drow: data){
+            result.add(drow.getId());
+        }
+        return result;
     }
 
     public List<String> getColumns() {
@@ -102,7 +111,7 @@ public class Table {
     }
 
     // Delete a row based on its ID
-    public void deleteRow(String id) {
+    public boolean deleteRow(String id) {
         Row row = data.search(new Row(id, null)); // Find the row by its ID
         if (row != null) {
             // Remove the row from the primary skip list
@@ -116,6 +125,7 @@ public class Table {
                     secondaryIndices.get(column).delete(indexEntry); // Remove the index entry
                 }
             }
+            return true;
         } else {
             throw new NoSuchElementException("Row with ID " + id + " not found");
         }
@@ -148,6 +158,9 @@ public class Table {
         } else if (operator.equals("=")) {
             result.addAll(data.getValuesEqual(new Row(id, null)).stream()
                     .map(x -> x.getId()).toList());
+        } else if (operator.equals("!=")){
+            result.addAll(data.getValuesNotEquals(new Row(id, null)).stream()
+                    .map(x -> x.getId()).toList());
         }
 
         return result;
@@ -174,6 +187,9 @@ public class Table {
         } else if (operator.equals("=")) {
             result.addAll(secondaryIndices.get(column).getValuesEqual(new Indexing(value, STRING_INT_MIN)).stream()
                     .map(x -> x.getPrimaryKey()).toList());
+        } else if (operator.equals("!=")){
+            result.addAll(secondaryIndices.get(column).getValuesNotEquals(new Indexing(value, STRING_INT_MIN)).stream()
+            .map(x -> x.getPrimaryKey()).toList());
         }
 
         return result;
