@@ -1,9 +1,11 @@
 import os
 
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 import seaborn as sns
 from IPython.display import display, HTML
+from scipy.interpolate import interp1d
 
 
 class BenchmarkVisualizer:
@@ -14,39 +16,73 @@ class BenchmarkVisualizer:
         Args:
             csv_files: List of paths to CSV files or single path string
             Format expected: 'engine_configuration_results.csv'
+
+        Raises:
+            ValueError: If file format is invalid or files cannot be read
+            FileNotFoundError: If any of the specified files don't exist
         """
         if isinstance(csv_files, str):
             csv_files = [csv_files]
 
+        if not csv_files:
+            raise ValueError("No CSV files provided")
+
         # Read and combine all CSV files
         dfs = []
         for file in csv_files:
-            df = pd.read_csv(file)
+            try:
+                df = pd.read_csv(file)
 
-            # Extract engine name and configuration from filename
-            base_name = os.path.basename(file)
-            # Remove '_results.csv' and split by '_'
-            name_parts = base_name.replace('_results.csv', '').split('_')
+                # Extract engine name and configuration from filename
+                base_name = os.path.basename(file)
+                # Remove '_results.csv' and split by '_'
+                name_parts = base_name.replace('_results.csv', '').split('_')
 
-            if len(name_parts) < 2:
-                raise ValueError(f"Invalid filename format for {file}. Expected: engine_configuration_results.csv")
+                if len(name_parts) < 2:
+                    raise ValueError(
+                        f"Invalid filename format for {file}. Expected: engine_configuration_results.csv"
+                    )
 
-            # Use the first part as engine name and the remaining parts as configuration
-            engine = name_parts[0]
-            config = '_'.join(name_parts[1:])
+                # Use the first part as engine name and the remaining parts as configuration
+                engine = name_parts[0]
+                config = '_'.join(name_parts[1:])
 
-            df['Engine'] = engine
-            df['Configuration'] = config
+                # Validate required columns exist
+                required_columns = {
+                    'Timestamp', 'QueryType', 'QueryCount', 'AverageExecutionTime',
+                    'SuccessRate', 'HeapMemoryUsed', 'HeapMemoryDelta'
+                }
+                missing_columns = required_columns - set(df.columns)
+                if missing_columns:
+                    raise ValueError(
+                        f"Missing required columns in {file}: {', '.join(missing_columns)}"
+                    )
 
-            # Update EngineType column to include configuration
-            df['EngineType'] = f"{engine}_{config}"
+                # Add engine and configuration information
+                df['Engine'] = engine
+                df['Configuration'] = config
+                df['EngineType'] = f"{engine}_{config}"
 
-            dfs.append(df)
+                dfs.append(df)
 
-        self.df = pd.concat(dfs, ignore_index=True)
+            except FileNotFoundError:
+                raise FileNotFoundError(f"Could not find CSV file: {file}")
+            except pd.errors.EmptyDataError:
+                raise ValueError(f"CSV file is empty: {file}")
+            except Exception as e:
+                raise ValueError(f"Error processing {file}: {str(e)}")
+
+        # Combine all DataFrames
+        try:
+            self.df = pd.concat(dfs, ignore_index=True)
+        except ValueError as e:
+            raise ValueError(f"Error combining CSV files: {str(e)}")
 
         # Convert timestamp to datetime
-        self.df['Timestamp'] = pd.to_datetime(self.df['Timestamp'])
+        try:
+            self.df['Timestamp'] = pd.to_datetime(self.df['Timestamp'])
+        except Exception as e:
+            raise ValueError(f"Error converting timestamps: {str(e)}")
 
         # Store unique engines and configurations for later use
         self.engines = sorted(self.df['Engine'].unique())
@@ -55,6 +91,17 @@ class BenchmarkVisualizer:
         # Generate a color palette for consistent colors across plots
         self.n_colors = len(self.df['EngineType'].unique())
         self.color_palette = sns.color_palette("husl", self.n_colors)
+
+        # Additional validation
+        if self.df.empty:
+            raise ValueError("No data loaded from CSV files")
+
+        # Print summary of loaded data
+        print(f"Loaded data from {len(csv_files)} files:")
+        print(f"- Total rows: {len(self.df)}")
+        print(f"- Engines: {', '.join(self.engines)}")
+        print(f"- Configurations: {', '.join(self.configurations)}")
+        print(f"- Query types: {', '.join(sorted(self.df['QueryType'].unique()))}")
 
     def show_summary_statistics(self):
         """Display summary statistics for each engine type and query type."""
@@ -82,22 +129,14 @@ class BenchmarkVisualizer:
         plt.tight_layout()
         plt.show()
 
-        # Generate statistical summary
-        stats_df = self.df.groupby(['QueryType', 'EngineType'])['AverageExecutionTime'].agg([
-            'mean',
-            'median',
-            'std',
-            'min',
-            'max',
-            lambda x: x.quantile(0.25),  # Q1
-            lambda x: x.quantile(0.75),  # Q3
-        ]).round(3)
-
-        stats_df.columns = ['Mean', 'Median', 'Std', 'Min', 'Max', 'Q1', 'Q3']
-        display(HTML("<h3>Statistical Summary of Execution Times</h3>"))
-        display(HTML(stats_df.to_html()))
-
-        return stats_df
+        # # Display statistics for each query type
+        # for query_type, stats in stats_by_type.items():
+        #     display(HTML(f"<h3>Statistical Summary for {query_type}</h3>"))
+        #     display(HTML(stats.style
+        #                  .background_gradient(subset=['Mean', 'Median', 'Std'])
+        #                  .to_html()))
+        #
+        # return stats_by_type
 
     def plot_success_rates(self):
         """Plot success rates for different query types and engines."""
@@ -222,60 +261,93 @@ class BenchmarkVisualizer:
         plt.tight_layout()
         plt.show()
 
-        # Generate performance statistics
-        perf_stats = self.df.groupby('EngineType').agg({
-            'AverageExecutionTime': ['mean', 'median', 'std'],
-            'SuccessRate': 'mean',
-            'HeapMemoryUsed': ['mean', 'median', 'std']
-        }).round(3)
+        # # Generate performance statistics
+        # perf_stats = self.df.groupby('EngineType').agg({
+        #     'AverageExecutionTime': ['mean', 'median', 'std'],
+        #     'SuccessRate': 'mean',
+        #     'HeapMemoryUsed': ['mean', 'median', 'std']
+        # }).round(3)
+        #
+        # display(HTML("<h3>Performance Statistics by Engine</h3>"))
+        # display(HTML(perf_stats.to_html()))
+        #
+        # return perf_stats
 
-        display(HTML("<h3>Performance Statistics by Engine</h3>"))
-        display(HTML(perf_stats.to_html()))
+    def interpolate_data(self, x, y, num_points=1000):
+        """
+        Create a smooth interpolation between data points, handling duplicate x values.
 
-        return perf_stats
+        Args:
+            x: x-axis values
+            y: y-axis values
+            num_points: number of points to interpolate
+
+        Returns:
+            Tuple of (x_new, y_new) interpolated values
+        """
+        if len(x) < 2:
+            return x, y
+
+        # Convert to numpy arrays
+        x = np.array(x)
+        y = np.array(y)
+
+        # Handle duplicate x values by averaging corresponding y values
+        unique_x = np.unique(x)
+        averaged_y = [np.mean(y[x == x_val]) for x_val in unique_x]
+
+        # If we have too few points for cubic interpolation, use linear
+        kind = 'cubic' if len(unique_x) > 3 else 'linear'
+
+        # Create interpolation function
+        x_new = np.linspace(min(unique_x), max(unique_x), num_points)
+        interpolator = interp1d(unique_x, averaged_y, kind=kind, bounds_error=False, fill_value='extrapolate')
+        y_new = interpolator(x_new)
+
+        return x_new, y_new
 
     def plot_query_time_trends(self):
         """
-        Plot execution time trends for each query type, comparing all engines within each plot.
-        Creates a subplot for each type of query operation (INSERT, SELECT, UPDATE, etc.)
+        Plot execution time trends with smooth interpolation between data points,
+        handling duplicate query counts by averaging.
         """
         query_types = sorted(self.df['QueryType'].unique())
         num_query_types = len(query_types)
-
-        # Calculate subplot layout
         num_cols = 2
         num_rows = (num_query_types + num_cols - 1) // num_cols
 
-        fig, axes = plt.subplots(num_rows, num_cols,
-                                 figsize=(15, 5 * num_rows),
-                                 squeeze=False)  # squeeze=False ensures axes is always 2D
-
-        # Flatten axes for easier iteration
+        fig, axes = plt.subplots(num_rows, num_cols, figsize=(15, 5 * num_rows), squeeze=False)
         axes_flat = axes.flatten()
 
-        # Plot for each query type
         for idx, query_type in enumerate(query_types):
             ax = axes_flat[idx]
-
-            # Get data for this query type
             query_data = self.df[self.df['QueryType'] == query_type]
 
-            # Plot each engine's trend line
             for engine_type in sorted(self.df['EngineType'].unique()):
                 engine_data = query_data[query_data['EngineType'] == engine_type]
                 if not engine_data.empty:
-                    # Sort by QueryCount to ensure proper line plot
+                    # Sort and handle duplicate query counts
                     engine_data = engine_data.sort_values('QueryCount')
-                    ax.plot(engine_data['QueryCount'],
-                            engine_data['AverageExecutionTime'],
+
+                    # Group by QueryCount and calculate mean execution time
+                    grouped_data = engine_data.groupby('QueryCount')['AverageExecutionTime'].mean().reset_index()
+
+                    # Interpolate the averaged data
+                    x_smooth, y_smooth = self.interpolate_data(
+                        grouped_data['QueryCount'].values,
+                        grouped_data['AverageExecutionTime'].values
+                    )
+
+                    # Plot smooth line
+                    ax.plot(x_smooth, y_smooth,
                             label=engine_type,
                             alpha=0.7)
 
-                    # Optionally add scatter points for actual data points
-                    ax.scatter(engine_data['QueryCount'],
-                               engine_data['AverageExecutionTime'],
-                               alpha=0.3,
-                               s=10)
+                    # Add subtle markers for actual data points
+                    ax.scatter(grouped_data['QueryCount'],
+                               grouped_data['AverageExecutionTime'],
+                               alpha=0.2,
+                               s=20)
 
             ax.set_title(f'{query_type} Performance Trends')
             ax.set_xlabel('Number of Queries')
@@ -283,7 +355,6 @@ class BenchmarkVisualizer:
             ax.grid(True, alpha=0.3)
             ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
 
-        # Remove any unused subplots
         for idx in range(num_query_types, len(axes_flat)):
             fig.delaxes(axes_flat[idx])
 
@@ -328,24 +399,24 @@ class BenchmarkVisualizer:
         plt.tight_layout()
         plt.show()
 
-        # Generate statistical comparison
-        stats_dfs = []
-        for ops, op_type in [(select_ops, 'SELECT'), (update_ops, 'UPDATE')]:
-            stats_df = ops.groupby(['EngineType', 'QueryType'])['AverageExecutionTime'].agg([
-                'mean',
-                'median',
-                'std',
-                'min',
-                'max',
-                lambda x: x.quantile(0.25),  # Q1
-                lambda x: x.quantile(0.75),  # Q3
-            ]).round(3)
-            stats_df.columns = ['Mean', 'Median', 'Std', 'Min', 'Max', 'Q1', 'Q3']
-            display(HTML(f"<h3>Statistical Summary for {op_type} Operations</h3>"))
-            display(HTML(stats_df.to_html()))
-            stats_dfs.append(stats_df)
-
-        return stats_dfs
+        # # Generate statistical comparison
+        # stats_dfs = []
+        # for ops, op_type in [(select_ops, 'SELECT'), (update_ops, 'UPDATE')]:
+        #     stats_df = ops.groupby(['EngineType', 'QueryType'])['AverageExecutionTime'].agg([
+        #         'mean',
+        #         'median',
+        #         'std',
+        #         'min',
+        #         'max',
+        #         lambda x: x.quantile(0.25),  # Q1
+        #         lambda x: x.quantile(0.75),  # Q3
+        #     ]).round(3)
+        #     stats_df.columns = ['Mean', 'Median', 'Std', 'Min', 'Max', 'Q1', 'Q3']
+        #     display(HTML(f"<h3>Statistical Summary for {op_type} Operations</h3>"))
+        #     display(HTML(stats_df.to_html()))
+        #     stats_dfs.append(stats_df)
+        #
+        # return stats_dfs
 
     def plot_configuration_impact(self):
         """Compare performance between different configurations of the same engine."""

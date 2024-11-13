@@ -1,6 +1,6 @@
 package edu.smu.smusql;
 
-import edu.smu.smusql.bplustreeA.BPlusTreeEngine;
+import edu.smu.smusql.bplustreeA.bplustreeHashmap.BPlusTreeEngine;
 import org.junit.jupiter.api.*;
 
 import static org.junit.jupiter.api.Assertions.*;

@@ -29,12 +29,11 @@ class SkipHashEngineTest {
                 engine.executeSQL("CREATE TABLE student (id, name, age, gpa, deans_list)"));
     }
 
-    // @Test
-    // void testCreateDuplicateTable() {
-    // engine.executeSQL("CREATE TABLE student (id, name, age)");
-    // assertThrows(RuntimeException.class, () -> engine.executeSQL("CREATE TABLE
-    // student (id, name, age)"));
-    // }
+    @Test
+    void testCreateDuplicateTable() {
+        engine.executeSQL("CREATE TABLE student (id, name, age)");
+        assertEquals("ERROR: Table student already exists." , engine.executeSQL("CREATE TABLE student (id, name, age)"));
+    }
 
     // INSERT TESTS
     @Test
@@ -52,12 +51,11 @@ class SkipHashEngineTest {
                 engine.executeSQL("INSERT INTO student VALUES (1, 'Jane', 22, 3.8, 'True')"));
     }
 
-    // @Test
-    // void testInsertInvalidColumnCount() {
-    // engine.executeSQL("CREATE TABLE student (id, name, age)");
-    // assertThrows(RuntimeException.class, () -> engine.executeSQL("INSERT INTO
-    // student VALUES (1, 'John')"));
-    // }
+    @Test
+    void testInsertInvalidColumnCount() {
+        engine.executeSQL("CREATE TABLE student (id, name, age)");
+        assertEquals("Invalid insert statement: number of values does not match number of columns", engine.executeSQL("INSERT INTO student VALUES (1, 'John')"));
+    }
 
     // SELECT TESTS
     @Test

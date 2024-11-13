@@ -1,8 +1,7 @@
 package edu.smu.smusql;
 
-import edu.smu.smusql.bplustreeA.BPlusTreeEngine;
-import edu.smu.smusql.hashMap.HashMapEngine;
-import edu.smu.smusql.skipHash.SkipHashEngine;
+import edu.smu.smusql.bplustreeA.bplustreeArray.BPlusTreeArrayEngine;
+import edu.smu.smusql.bplustreeA.bplustreeHashmap.BPlusTreeEngine;
 import edu.smu.smusql.skipLinkedListIndexed.SkipLinkedListIndexedEngine;
 import java.util.Random;
 import java.util.Scanner;
@@ -16,9 +15,10 @@ public class Main2 {
      *  MODIFICATION OF THIS FILE IS NOT RECOMMENDED!
      */
 //    static IEngine dbEngine = new BPlusTreeEngine(false);
+    static IEngine dbEngine = new BPlusTreeArrayEngine(false);
 //    static IEngine dbEngine = new HashMapEngine();
 //    static IEngine dbEngine = new SkipHashEngine();
-    static IEngine dbEngine = new SkipLinkedListIndexedEngine();
+//    static IEngine dbEngine = new SkipLinkedListIndexedEngine();
 
     public static void main(String[] args) {
 
