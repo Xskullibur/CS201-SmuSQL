@@ -1,7 +1,6 @@
 package edu.smu.smusql.bplustreeA;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -74,51 +73,6 @@ public class BPlusTree<K extends Number, V> {
      * @param keys List of keys to search for, must be sorted
      * @return Map of key-value pairs found
      */
-//    public Map<K, V> multiKeySearch(List<K> keys) {
-//        if (keys == null || keys.isEmpty() || root == null) {
-//            return new HashMap<>();
-//        }
-//
-//        Map<K, V> results = new HashMap<>((int) (keys.size() / 0.75f) + 1);
-//        LeafNode leaf = getLeafNode(keys);
-//        int keyIndex = 0;
-//
-//        // Traverse through leaf nodes
-//        while (leaf != null && keyIndex < keys.size()) {
-//            K targetKey = keys.get(keyIndex);
-//
-//            // Process all matching keys in current leaf
-//            for (int i = 0; i < leaf.keys.size() && keyIndex < keys.size(); i++) {
-//                K leafKey = leaf.keys.get(i);
-//                int comparison = comparator.compare(leafKey, targetKey);
-//
-//                if (comparison == 0) {
-//                    // Found matching key
-//                    results.put(targetKey, leaf.values.get(i).get(0));
-//                    keyIndex++;
-//                    if (keyIndex < keys.size()) {
-//                        targetKey = keys.get(keyIndex);
-//                    }
-//                } else if (comparison > 0) {
-//                    // Current leaf key is greater than target
-//                    if (comparator.compare(leafKey, keys.get(keys.size() - 1)) > 0) {
-//                        // All remaining leaf keys will be too large
-//                        return results;
-//                    }
-//                    while (keyIndex < keys.size() &&
-//                        comparator.compare(keys.get(keyIndex), leafKey) < 0) {
-//                        keyIndex++;
-//                    }
-//                    if (keyIndex < keys.size()) {
-//                        targetKey = keys.get(keyIndex);
-//                    }
-//                }
-//            }
-//            leaf = leaf.next;
-//        }
-//
-//        return results;
-//    }
     public Map<K, V> multiKeySearch(List<K> keys) {
         if (keys == null || keys.isEmpty() || root == null) {
             return new HashMap<>();
@@ -128,40 +82,86 @@ public class BPlusTree<K extends Number, V> {
         LeafNode leaf = getLeafNode(keys);
         int keyIndex = 0;
 
+        // Traverse through leaf nodes
         while (leaf != null && keyIndex < keys.size()) {
-            K currentKey = keys.get(keyIndex);
-            K nextKey = keyIndex + 1 < keys.size() ? keys.get(keyIndex + 1) : null;
+            K targetKey = keys.get(keyIndex);
 
-            // Process current leaf...
+            // Process all matching keys in current leaf
             for (int i = 0; i < leaf.keys.size() && keyIndex < keys.size(); i++) {
                 K leafKey = leaf.keys.get(i);
-                int comparison = comparator.compare(leafKey, currentKey);
+                int comparison = comparator.compare(leafKey, targetKey);
 
                 if (comparison == 0) {
-                    results.put(currentKey, leaf.values.get(i).get(0));
+                    // Found matching key
+                    results.put(targetKey, leaf.values.get(i).get(0));
                     keyIndex++;
                     if (keyIndex < keys.size()) {
-                        currentKey = keys.get(keyIndex);
+                        targetKey = keys.get(keyIndex);
+                    }
+                } else if (comparison > 0) {
+                    // Current leaf key is greater than target
+                    if (comparator.compare(leafKey, keys.get(keys.size() - 1)) > 0) {
+                        // All remaining leaf keys will be too large
+                        return results;
+                    }
+                    while (keyIndex < keys.size() &&
+                        comparator.compare(keys.get(keyIndex), leafKey) < 0) {
+                        keyIndex++;
+                    }
+                    if (keyIndex < keys.size()) {
+                        targetKey = keys.get(keyIndex);
                     }
                 }
             }
-
-            // Decide how to move to next key
-            if (nextKey != null && shouldUseRootTraversal(currentKey, nextKey)) {
-                leaf = getLeafNode(Collections.singletonList(nextKey));
-            } else {
-                leaf = leaf.next;
-            }
-
-//            // Traverse from node
-//            leaf = getLeafNode(Collections.singletonList(nextKey));
-
-//            // Traverse from leaf
-//            leaf = leaf.next;
+            leaf = leaf.next;
         }
 
         return results;
     }
+
+//    public Map<K, V> multiKeySearch(List<K> keys) {
+//        if (keys == null || keys.isEmpty() || root == null) {
+//            return new HashMap<>();
+//        }
+//
+//        Map<K, V> results = new HashMap<>((int) (keys.size() / 0.75f) + 1);
+//        LeafNode leaf = getLeafNode(keys);
+//        int keyIndex = 0;
+//
+//        while (leaf != null && keyIndex < keys.size()) {
+//            K currentKey = keys.get(keyIndex);
+//            K nextKey = keyIndex + 1 < keys.size() ? keys.get(keyIndex + 1) : null;
+//
+//            // Process current leaf...
+//            for (int i = 0; i < leaf.keys.size() && keyIndex < keys.size(); i++) {
+//                K leafKey = leaf.keys.get(i);
+//                int comparison = comparator.compare(leafKey, currentKey);
+//
+//                if (comparison == 0) {
+//                    results.put(currentKey, leaf.values.get(i).get(0));
+//                    keyIndex++;
+//                    if (keyIndex < keys.size()) {
+//                        currentKey = keys.get(keyIndex);
+//                    }
+//                }
+//            }
+//
+//            // Decide how to move to next key
+//            if (nextKey != null && shouldUseRootTraversal(currentKey, nextKey)) {
+//                leaf = getLeafNode(Collections.singletonList(nextKey));
+//            } else {
+//                leaf = leaf.next;
+//            }
+//
+////            // Traverse from node
+////            leaf = getLeafNode(Collections.singletonList(nextKey));
+//
+////            // Traverse from leaf
+////            leaf = leaf.next;
+//        }
+//
+//        return results;
+//    }
 
     private LeafNode getLeafNode(List<K> keys) {
 

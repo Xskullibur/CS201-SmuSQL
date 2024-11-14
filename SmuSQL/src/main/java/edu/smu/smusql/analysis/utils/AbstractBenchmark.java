@@ -67,8 +67,8 @@ public abstract class AbstractBenchmark {
             String name = "User" + id;
             int age = 20 + random.nextInt(41);
             String city = DataGenerator.getRandomCity(random);
-            String sql = String.format("INSERT INTO users VALUES (%d, '%s', %d, '%s')",
-                id, name, age, city);
+            String sql = String.format("INSERT INTO users VALUES (%d, '%s', %d, '%s')", id, name,
+                age, city);
             engine.executeSQL(sql);
         }
 
@@ -78,8 +78,8 @@ public abstract class AbstractBenchmark {
             String name = "Product" + id;
             double price = 50 + (random.nextDouble() * 950);
             String category = DataGenerator.getRandomCategory(random);
-            String sql = String.format("INSERT INTO products VALUES (%d, '%s', %.2f, '%s')",
-                id, name, price, category);
+            String sql = String.format("INSERT INTO products VALUES (%d, '%s', %.2f, '%s')", id,
+                name, price, category);
             engine.executeSQL(sql);
         }
 
@@ -89,8 +89,8 @@ public abstract class AbstractBenchmark {
             int userId = random.nextInt(100) + 1;
             int productId = random.nextInt(100) + 1;
             int quantity = random.nextInt(10) + 1;
-            String sql = String.format("INSERT INTO orders VALUES (%d, %d, %d, %d)",
-                id, userId, productId, quantity);
+            String sql = String.format("INSERT INTO orders VALUES (%d, %d, %d, %d)", id, userId,
+                productId, quantity);
             engine.executeSQL(sql);
         }
     }
@@ -125,8 +125,8 @@ public abstract class AbstractBenchmark {
         String name = "User" + id;
         int age = random.nextInt(60) + 20;
         String city = DataGenerator.getRandomCity(random);
-        String sql = String.format("INSERT INTO users VALUES (%d, '%s', %d, '%s')",
-            id, name, age, city);
+        String sql = String.format("INSERT INTO users VALUES (%d, '%s', %d, '%s')", id, name, age,
+            city);
         engine.executeSQL(sql);
     }
 
@@ -135,8 +135,8 @@ public abstract class AbstractBenchmark {
         String name = "Product" + id;
         double price = 50 + (random.nextDouble() * 1000);
         String category = DataGenerator.getRandomCategory(random);
-        String sql = String.format("INSERT INTO products VALUES (%d, '%s', %.2f, '%s')",
-            id, name, price, category);
+        String sql = String.format("INSERT INTO products VALUES (%d, '%s', %.2f, '%s')", id, name,
+            price, category);
         engine.executeSQL(sql);
     }
 
@@ -152,8 +152,8 @@ public abstract class AbstractBenchmark {
         int productId = productIdList.get(random.nextInt(productIdList.size()));
         int quantity = random.nextInt(10) + 1;
 
-        String sql = String.format("INSERT INTO orders VALUES (%d, %d, %d, %d)",
-            id, userId, productId, quantity);
+        String sql = String.format("INSERT INTO orders VALUES (%d, %d, %d, %d)", id, userId,
+            productId, quantity);
         engine.executeSQL(sql);
     }
 
@@ -162,8 +162,7 @@ public abstract class AbstractBenchmark {
             int minAge = random.nextInt(20) + 20;
             int maxAge = minAge + random.nextInt(30);
             engine.executeSQL(
-                String.format("SELECT * FROM users WHERE age >= %d AND age <= %d",
-                    minAge, maxAge));
+                String.format("SELECT * FROM users WHERE age >= %d AND age <= %d", minAge, maxAge));
         } else {
             double minPrice = 50 + (random.nextDouble() * 200);
             double maxPrice = minPrice + random.nextDouble() * 500;
@@ -233,16 +232,15 @@ public abstract class AbstractBenchmark {
             int maxAge = minAge + random.nextInt(30);
             int newAge = random.nextInt(60) + 20;
             engine.executeSQL(
-                String.format("UPDATE users SET age = %d WHERE age >= %d AND age <= %d",
-                    newAge, minAge, maxAge));
+                String.format("UPDATE users SET age = %d WHERE age >= %d AND age <= %d", newAge,
+                    minAge, maxAge));
         } else {
             double minPrice = 50 + (random.nextDouble() * 200);
             double maxPrice = minPrice + random.nextDouble() * 500;
             double newPrice = 50 + (random.nextDouble() * 1000);
-            engine.executeSQL(
-                String.format(
-                    "UPDATE products SET price = %.2f WHERE price >= %.2f AND price <= %.2f",
-                    newPrice, minPrice, maxPrice));
+            engine.executeSQL(String.format(
+                "UPDATE products SET price = %.2f WHERE price >= %.2f AND price <= %.2f", newPrice,
+                minPrice, maxPrice));
         }
     }
 
@@ -256,8 +254,8 @@ public abstract class AbstractBenchmark {
             String category = DataGenerator.getRandomCategory(random);
             double newPrice = 50 + (random.nextDouble() * 1000);
             engine.executeSQL(
-                String.format("UPDATE products SET price = %.2f WHERE category = '%s'",
-                    newPrice, category));
+                String.format("UPDATE products SET price = %.2f WHERE category = '%s'", newPrice,
+                    category));
         }
     }
 

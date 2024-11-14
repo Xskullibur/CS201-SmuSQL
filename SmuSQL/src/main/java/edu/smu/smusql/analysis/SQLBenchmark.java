@@ -41,7 +41,8 @@ class SQLEngineFactory {
             case BPLUSARRAY:
                 return new BPlusTreeArrayEngine((boolean) config.getParameter("useCache"));
             case BPLUSMULTIRANGEARRAY:
-                return new BPlusTree_MultiRange_ArrayEngine((boolean) config.getParameter("useCache"));
+                return new BPlusTree_MultiRange_ArrayEngine(
+                    (boolean) config.getParameter("useCache"));
             case HASHMAP:
                 return new HashMapEngine();
             case SKIPHASH:
@@ -108,12 +109,12 @@ public class SQLBenchmark extends AbstractBenchmark {
         );
 
 //        engineConfigs.put(EngineType.BPLUSHASHMAP, bplusConfigs);
-//        engineConfigs.put(EngineType.BPLUSARRAY, bplusConfigs);
+        engineConfigs.put(EngineType.BPLUSARRAY, bplusConfigs);
 //        engineConfigs.put(EngineType.BPLUSMULTIRANGEARRAY, bplusConfigs);
-//        engineConfigs.put(EngineType.SKIPHASH,
-//            Collections.singletonList(new EngineConfig.Builder().build()));
-//        engineConfigs.put(EngineType.HASHMAP,
-//            Collections.singletonList(new EngineConfig.Builder().build()));
+        engineConfigs.put(EngineType.SKIPHASH,
+            Collections.singletonList(new EngineConfig.Builder().build()));
+        engineConfigs.put(EngineType.HASHMAP,
+            Collections.singletonList(new EngineConfig.Builder().build()));
         engineConfigs.put(EngineType.SKIPINDEXED,
             Collections.singletonList(new EngineConfig.Builder().build()));
 

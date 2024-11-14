@@ -103,15 +103,15 @@ class BenchmarkVisualizer:
         print(f"- Configurations: {', '.join(self.configurations)}")
         print(f"- Query types: {', '.join(sorted(self.df['QueryType'].unique()))}")
 
-    def show_summary_statistics(self):
-        """Display summary statistics for each engine type and query type."""
-        summary = self.df.groupby(['EngineType', 'QueryType']).agg({
-            'AverageExecutionTime': ['mean', 'std', 'min', 'max'],
-            'SuccessRate': 'mean',
-            'HeapMemoryUsed': 'mean'
-        }).round(2)
-
-        display(HTML(summary.to_html()))
+    # def show_summary_statistics(self):
+    #     """Display summary statistics for each engine type and query type."""
+    #     summary = self.df.groupby(['EngineType', 'QueryType']).agg({
+    #         'AverageExecutionTime': ['mean', 'std', 'min', 'max'],
+    #         'SuccessRate': 'mean',
+    #         'HeapMemoryUsed': 'mean'
+    #     }).round(2)
+    # 
+    #     display(HTML(summary.to_html()))
 
     def plot_execution_time_distribution(self):
         """Plot distribution of execution times with log scale and statistical analysis."""
