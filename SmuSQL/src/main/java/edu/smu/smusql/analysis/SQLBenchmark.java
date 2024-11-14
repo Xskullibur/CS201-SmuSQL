@@ -85,7 +85,7 @@ class EngineConfig {
 public class SQLBenchmark extends AbstractBenchmark {
 
     private static final String RESULTS_DIR = "src/main/java/edu/smu/smusql/analysis/visualization/results";
-    private static final int REPORTING_INTERVAL = 1000;
+    private static final int REPORTING_INTERVAL = 10000;
     private final UniqueIdManager idManager = new UniqueIdManager();
     private MetricsCollector metricsCollector;
 
