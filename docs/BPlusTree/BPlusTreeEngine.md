@@ -210,7 +210,7 @@ evaluate.
 
 #### Benchmark Results
 
-![img.png](src/BPlusTree_OrderAnalysis_Results.png)
+![img.png](../src/BPlusTree_OrderAnalysis_Results.png)
 
 - Smaller datasets (1K) perform well with order 16
 - Medium datasets (10K) benefit from larger order (64)
@@ -224,7 +224,7 @@ performance across different dataset sizes
 
 #### Original Implementation Issues
 
-![alt text](/SmuSQL/src/main/java/edu/smu/smusql/bplustreeA/src/combineResults/combineResults_before.png)
+![alt text](../src/combineResults/combineResults_before.png)
 
 ```java
 private List<Integer> combineResults(List<Integer> leftResult, List<Integer> rightResult,
@@ -248,7 +248,7 @@ private List<Integer> combineResults(List<Integer> leftResult, List<Integer> rig
 
 #### Optimized Implementation
 
-![alt text](/SmuSQL/src/main/java/edu/smu/smusql/bplustreeA/src/combineResults/combineResults_after.png)
+![alt text](../src/combineResults/combineResults_after.png)
 
 Improvements:
 
@@ -261,7 +261,7 @@ Improvements:
 
 #### Original Implementation Issues
 
-![alt text](/SmuSQL/src/main/java/edu/smu/smusql/bplustreeA/src/retrieveFilteredRows/retrieveFilteredRows_before.png)
+![alt text](../src/retrieveFilteredRows/retrieveFilteredRows_before.png)
 
 ```java
 private Map<Integer, Map<String, Object>> retrieveFilteredRows(List<Integer> filteredKeys,
@@ -291,7 +291,7 @@ private Map<Integer, Map<String, Object>> retrieveFilteredRows(List<Integer> fil
 
 #### Optimized Implementation
 
-![alt text](/SmuSQL/src/main/java/edu/smu/smusql/bplustreeA/src/retrieveFilteredRows/retrieveFilteredRows_after.png)
+![alt text](../src/retrieveFilteredRows/retrieveFilteredRows_after.png)
 
 Key Improvements:
 
@@ -304,11 +304,11 @@ Key Improvements:
 
 #### Original Benchmark
 
-![alt text](/SmuSQL/src/main/java/edu/smu/smusql/bplustreeA/src/benchmarks/benchmark3.png)
+![alt text](../src/benchmarks/benchmark3.png)
 
 #### Optimized Benchmark
 
-![alt text](/SmuSQL/src/main/java/edu/smu/smusql/bplustreeA/src/benchmarks/benchmark4.png)
+![alt text](../src/benchmarks/benchmark4.png)
 
 Implemented a LRU cache for expensive SELECT operations:
 
