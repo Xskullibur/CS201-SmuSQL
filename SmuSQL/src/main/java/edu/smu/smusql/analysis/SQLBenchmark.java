@@ -11,9 +11,6 @@ import edu.smu.smusql.skipHash.SkipHashEngine;
 import edu.smu.smusql.skipLinkedListIndexed.SkipLinkedListIndexedEngine;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.lang.management.ManagementFactory;
-import java.lang.management.MemoryMXBean;
-import java.lang.management.MemoryUsage;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
@@ -104,13 +101,12 @@ public class SQLBenchmark extends AbstractBenchmark {
 
         // BPlusTree configurations
         List<EngineConfig> bplusConfigs = Arrays.asList(
-//            new EngineConfig.Builder().addParameter("useCache", true).build(),
+            new EngineConfig.Builder().addParameter("useCache", true).build(),
             new EngineConfig.Builder().addParameter("useCache", false).build()
         );
 
-//        engineConfigs.put(EngineType.BPLUSHASHMAP, bplusConfigs);
+        engineConfigs.put(EngineType.BPLUSHASHMAP, bplusConfigs);
         engineConfigs.put(EngineType.BPLUSARRAY, bplusConfigs);
-//        engineConfigs.put(EngineType.BPLUSMULTIRANGEARRAY, bplusConfigs);
         engineConfigs.put(EngineType.SKIPHASH,
             Collections.singletonList(new EngineConfig.Builder().build()));
         engineConfigs.put(EngineType.HASHMAP,
@@ -201,36 +197,35 @@ public class SQLBenchmark extends AbstractBenchmark {
         metricsCollector = new MetricsCollector();
 
         for (int i = 0; i < numberOfQueries; i++) {
-            int queryType = random.nextInt(8); // Updated to handle 8 query types
+            int queryType = random.nextInt(8);
             long startTime = System.nanoTime();
             boolean success = true;
-            long memoryDelta = 0;
 
             try {
                 switch (queryType) {
                     case 0:
-                        memoryDelta = measureMemoryUsage(this::executeInsert);
+                        executeInsert();
                         break;
                     case 1:
-                        memoryDelta = measureMemoryUsage(this::executeSimpleSelect);
+                        executeSimpleSelect();
                         break;
                     case 2:
-                        memoryDelta = measureMemoryUsage(this::executeUpdate);
+                        executeUpdate();
                         break;
                     case 3:
-                        memoryDelta = measureMemoryUsage(this::executeDelete);
+                        executeDelete();
                         break;
                     case 4:
-                        memoryDelta = measureMemoryUsage(this::executeRangeSelect);
+                        executeRangeSelect();
                         break;
                     case 5:
-                        memoryDelta = measureMemoryUsage(this::executeEqualsSelect);
+                        executeEqualsSelect();
                         break;
                     case 6:
-                        memoryDelta = measureMemoryUsage(this::executeRangeUpdate);
+                        executeRangeUpdate();
                         break;
                     case 7:
-                        memoryDelta = measureMemoryUsage(this::executeEqualsUpdate);
+                        executeEqualsUpdate();
                         break;
                 }
             } catch (Exception e) {
@@ -240,7 +235,7 @@ public class SQLBenchmark extends AbstractBenchmark {
 
             long endTime = System.nanoTime();
             QueryType type = QueryType.values()[queryType];
-            metricsCollector.recordQuery(type, endTime - startTime, memoryDelta, success);
+            metricsCollector.recordQuery(type, endTime - startTime, success);
 
             if ((i + 1) % REPORTING_INTERVAL == 0) {
                 writeMetricsToCSV(i + 1);
@@ -256,50 +251,25 @@ public class SQLBenchmark extends AbstractBenchmark {
 
         // Clear the engine's data
         engine.clearDatabase();
-
-        // Perform garbage collection
-        performGC();
-
-        // Log memory stats after cleanup
-        Runtime rt = Runtime.getRuntime();
-        long usedMemory = (rt.totalMemory() - rt.freeMemory()) / 1024 / 1024;
         System.out.printf("%nCompleted %s-%s benchmark:%n", engineType, configStr);
-        System.out.printf("Final memory usage after cleanup: %dMB%n", usedMemory);
         System.out.println("----------------------------------------");
     }
 
-    private long measureMemoryUsage(Runnable operation) {
-        // Record memory before operation
-        long beforeMemory = memoryBean.getHeapMemoryUsage().getUsed();
-
-        // Time the operation execution with warmup
-        try {
-            operation.run();
-        } catch (Exception e) {
-            System.err.println("Operation failed: " + e.getMessage());
-        }
-
-        // Record memory after operation
-        long afterMemory = memoryBean.getHeapMemoryUsage().getUsed();
-        return afterMemory - beforeMemory;
-    }
-
     private void writeMetricsToCSV(int queryCount) {
-        MemoryMXBean memoryBean = ManagementFactory.getMemoryMXBean();
-        MemoryUsage heapMemory = memoryBean.getHeapMemoryUsage();
-        MemoryUsage nonHeapMemory = memoryBean.getNonHeapMemoryUsage();
-
         String timestamp = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
 
         try (FileWriter fw = new FileWriter(outputFile, true)) {
             for (QueryType type : QueryType.values()) {
                 QueryMetrics metrics = metricsCollector.getMetrics(type);
                 if (metrics.getTotalQueries() > 0) {
-                    fw.write(String.format("%s,%s,%d,%s,%.2f,%.2f,%d,%d,%d,%.2f\n", timestamp,
-                        engine.getClass().getSimpleName(), queryCount, type.name(),
-                        metrics.getAverageExecutionTime(), metrics.getTotalExecutionTime(),
-                        heapMemory.getUsed(), metrics.getTotalMemoryDelta(),
-                        nonHeapMemory.getUsed(), metrics.getSuccessRate()));
+                    fw.write(String.format("%s,%s,%d,%s,%.2f,%.2f,%.2f\n",
+                        timestamp,
+                        engine.getClass().getSimpleName(),
+                        metrics.getTotalQueries(),         // <-- Use individual query type count
+                        type.name(),
+                        metrics.getAverageExecutionTime(),
+                        metrics.getTotalExecutionTime(),
+                        metrics.getSuccessRate()));
                 }
             }
         } catch (IOException e) {
@@ -309,8 +279,7 @@ public class SQLBenchmark extends AbstractBenchmark {
 
     @Override
     protected String getCSVHeader() {
-        return "Timestamp,EngineType,QueryCount,QueryType,AverageExecutionTime,"
-            + "TotalExecutionTime,HeapMemoryUsed,HeapMemoryDelta,NonHeapMemoryUsed,SuccessRate\n";
+        return "Timestamp,EngineType,QueryCount,QueryType,AverageExecutionTime,TotalExecutionTime,SuccessRate\n";
     }
 
     private String getRandomCity() {
@@ -328,15 +297,12 @@ public class SQLBenchmark extends AbstractBenchmark {
 }
 
 class QueryMetrics {
-
     private long totalExecutionTime;
-    private long totalMemoryDelta;
     private int totalQueries;
     private int successfulQueries;
 
-    public void recordQuery(long executionTime, long memoryDelta, boolean success) {
+    public void recordQuery(long executionTime, boolean success) {
         totalExecutionTime += executionTime;
-        totalMemoryDelta += memoryDelta;
         totalQueries++;
         if (success) {
             successfulQueries++;
@@ -359,14 +325,6 @@ class QueryMetrics {
     public int getTotalQueries() {
         return totalQueries;
     }
-
-    public long getTotalMemoryDelta() {
-        return totalMemoryDelta;
-    }
-
-    public double getAverageMemoryDelta() {
-        return totalQueries > 0 ? (double) totalMemoryDelta / totalQueries : 0.0;
-    }
 }
 
 class MetricsCollector {
@@ -380,8 +338,8 @@ class MetricsCollector {
         }
     }
 
-    public void recordQuery(QueryType type, long executionTime, long memoryDelta, boolean success) {
-        metricsMap.get(type).recordQuery(executionTime, memoryDelta, success);
+    public void recordQuery(QueryType type, long executionTime, boolean success) {
+        metricsMap.get(type).recordQuery(executionTime, success);
     }
 
     public QueryMetrics getMetrics(QueryType type) {
