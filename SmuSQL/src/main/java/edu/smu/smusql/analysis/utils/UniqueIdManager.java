@@ -7,11 +7,11 @@ import java.util.Set;
 public class UniqueIdManager {
 
     private static final int USER_ID_MIN = 1000;
-    private static final int USER_ID_MAX = 499999;
-    private static final int PRODUCT_ID_MIN = 500000;
-    private static final int PRODUCT_ID_MAX = 999999;
-    private static final int ORDER_ID_MIN = 1000000;
-    private static final int ORDER_ID_MAX = 1999999;
+    private static final int USER_ID_MAX = Integer.MAX_VALUE;
+    private static final int PRODUCT_ID_MIN = 1000;
+    private static final int PRODUCT_ID_MAX = Integer.MAX_VALUE;
+    private static final int ORDER_ID_MIN = 1000;
+    private static final int ORDER_ID_MAX = Integer.MAX_VALUE;
 
     private final Set<Integer> usedUserIds = new HashSet<>();
     private final Set<Integer> usedProductIds = new HashSet<>();
@@ -22,6 +22,11 @@ public class UniqueIdManager {
     }
 
     private int generateUniqueId(Set<Integer> usedIds, int min, int max, Random random) {
+
+        if (usedUserIds.size() >= (USER_ID_MAX - USER_ID_MIN)) {
+            throw new RuntimeException("ID space exhausted");
+        }
+
         while (true) {
             int id = min + random.nextInt(max - min + 1);
             if (usedIds.add(id)) {
@@ -52,5 +57,11 @@ public class UniqueIdManager {
 
     public Set<Integer> getExistingProductIds() {
         return new HashSet<>(usedProductIds);
+    }
+
+    public synchronized void clearUsedIds() {
+        usedUserIds.clear();
+        usedProductIds.clear();
+        usedOrderIds.clear();
     }
 }

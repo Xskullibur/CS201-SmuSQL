@@ -1,71 +1,47 @@
 package edu.smu.smusql.analysis;
 
 import edu.smu.smusql.IEngine;
+import edu.smu.smusql.analysis.utils.UniqueIdManager;
 import edu.smu.smusql.bplustreeA.bplustreeHashmap.BPlusTreeEngine;
 import edu.smu.smusql.hashMap.HashMapEngine;
 import edu.smu.smusql.skipHash.SkipHashEngine;
 import edu.smu.smusql.skipLinkedListIndexed.SkipLinkedListIndexedEngine;
-import java.util.Random;
-import java.time.Duration;
-import java.time.Instant;
 import java.io.FileWriter;
 import java.io.PrintWriter;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 
 public class MemoryBenchmark {
+
     private static final int[] DATASET_SIZES = {
         10_000,    // 10K
         100_000,   // 100K
         1_000_000  // 1M
     };
-
-    // Data collection classes
-    private static class MemoryMeasurement {
-        final String implementation;
-        final int datasetSize;
-        final int batchNumber;
-        final long timestamp;
-        final double totalMemoryMB;
-        final double memoryPerRecord;
-        final int recordsProcessed;
-        final long gcCount;
-        final long gcTimeMs;
-        final double heapUsageMB;
-        final long insertionTimeMs;
-
-        MemoryMeasurement(String implementation, int datasetSize, int batchNumber,
-            double totalMemoryMB, double memoryPerRecord, int recordsProcessed,
-            long gcCount, long gcTimeMs, double heapUsageMB, long insertionTimeMs) {
-            this.implementation = implementation;
-            this.datasetSize = datasetSize;
-            this.batchNumber = batchNumber;
-            this.timestamp = System.currentTimeMillis();
-            this.totalMemoryMB = totalMemoryMB;
-            this.memoryPerRecord = memoryPerRecord;
-            this.recordsProcessed = recordsProcessed;
-            this.gcCount = gcCount;
-            this.gcTimeMs = gcTimeMs;
-            this.heapUsageMB = heapUsageMB;
-            this.insertionTimeMs = insertionTimeMs;
-        }
-    }
-
     private final List<MemoryMeasurement> measurements = new ArrayList<>();
     private final Random random = new Random(42);
-    private long startGCCount;
-    private long startGCTime;
-
     private final BPlusTreeEngine bPlusTreeEngine;
     private final SkipLinkedListIndexedEngine skipListEngine;
     private final SkipHashEngine skipHashEngine;
     private final HashMapEngine hashMapEngine;
+    private long startGCCount;
+    private long startGCTime;
+    private final UniqueIdManager idManager;
 
     public MemoryBenchmark() {
         this.bPlusTreeEngine = new BPlusTreeEngine();
         this.skipListEngine = new SkipLinkedListIndexedEngine();
         this.skipHashEngine = new SkipHashEngine();
         this.hashMapEngine = new HashMapEngine();
+        this.idManager = new UniqueIdManager();
+    }
+
+    public static void main(String[] args) throws Exception {
+        MemoryBenchmark benchmark = new MemoryBenchmark();
+        benchmark.runBenchmarks();
     }
 
     public void runBenchmarks() throws Exception {
@@ -91,11 +67,29 @@ public class MemoryBenchmark {
         writeSummaryCSV();
     }
 
-    private void testImplementation(IEngine engine, int datasetSize, String implName) throws Exception {
+    private void writeDetailedCSVHeader() throws Exception {
+        try (PrintWriter writer = new PrintWriter(
+            new FileWriter("memory_measurements_detailed.csv"))) {
+            writer.println("Implementation,DatasetSize,BatchNumber,Timestamp,TotalMemoryMB," +
+                "MemoryPerRecord,RecordsProcessed,GCCount,GCTimeMs,HeapUsageMB,InsertionTimeMs");
+        }
+    }
+
+    private void writeSummaryCSVHeader() throws Exception {
+        try (PrintWriter writer = new PrintWriter(
+            new FileWriter("memory_measurements_summary.csv"))) {
+            writer.println("Implementation,DatasetSize,FinalMemoryMB,AverageMemoryPerRecord," +
+                "TotalGCCount,TotalGCTimeMs,TotalInsertionTimeMs,AverageInsertionTimeMs");
+        }
+    }
+
+    private void testImplementation(IEngine engine, int datasetSize, String implName)
+        throws Exception {
         System.out.println("\nTesting " + implName + " with " + datasetSize + " records");
 
         // Clear previous data and warm up
         engine.clearDatabase();
+        idManager.clearUsedIds();
         System.gc();
         Thread.sleep(1000);
 
@@ -118,7 +112,7 @@ public class MemoryBenchmark {
 
             // Insert batch data
             for (int i = 0; i < batchSize; i++) {
-                int id = batch * batchSize + i;
+                int id = idManager.generateUniqueUserId(random);
                 String sql = String.format(
                     "INSERT INTO test_table VALUES (%d, '%s', %d, %.2f, '%s', '%s')",
                     id,
@@ -159,22 +153,9 @@ public class MemoryBenchmark {
         }
     }
 
-    private void writeDetailedCSVHeader() throws Exception {
-        try (PrintWriter writer = new PrintWriter(new FileWriter("memory_measurements_detailed.csv"))) {
-            writer.println("Implementation,DatasetSize,BatchNumber,Timestamp,TotalMemoryMB," +
-                "MemoryPerRecord,RecordsProcessed,GCCount,GCTimeMs,HeapUsageMB,InsertionTimeMs");
-        }
-    }
-
-    private void writeSummaryCSVHeader() throws Exception {
-        try (PrintWriter writer = new PrintWriter(new FileWriter("memory_measurements_summary.csv"))) {
-            writer.println("Implementation,DatasetSize,FinalMemoryMB,AverageMemoryPerRecord," +
-                "TotalGCCount,TotalGCTimeMs,TotalInsertionTimeMs,AverageInsertionTimeMs");
-        }
-    }
-
     private void writeDetailedCSV() throws Exception {
-        try (PrintWriter writer = new PrintWriter(new FileWriter("memory_measurements_detailed.csv", true))) {
+        try (PrintWriter writer = new PrintWriter(
+            new FileWriter("memory_measurements_detailed.csv", true))) {
             for (MemoryMeasurement m : measurements) {
                 writer.printf("%s,%d,%d,%d,%.2f,%.2f,%d,%d,%d,%.2f,%d%n",
                     m.implementation, m.datasetSize, m.batchNumber, m.timestamp,
@@ -185,7 +166,8 @@ public class MemoryBenchmark {
     }
 
     private void writeSummaryCSV() throws Exception {
-        try (PrintWriter writer = new PrintWriter(new FileWriter("memory_measurements_summary.csv", true))) {
+        try (PrintWriter writer = new PrintWriter(
+            new FileWriter("memory_measurements_summary.csv", true))) {
             // Group measurements by implementation and dataset size
             for (int size : DATASET_SIZES) {
                 for (String impl : new String[]{"BPlusTree", "SkipList", "SkipHash", "HashMap"}) {
@@ -216,12 +198,6 @@ public class MemoryBenchmark {
         }
     }
 
-    // Utility methods for memory and GC statistics
-    private long getUsedMemory() {
-        Runtime rt = Runtime.getRuntime();
-        return rt.totalMemory() - rt.freeMemory();
-    }
-
     private long getGCCount() {
         long count = 0;
         for (java.lang.management.GarbageCollectorMXBean gc :
@@ -240,10 +216,10 @@ public class MemoryBenchmark {
         return time;
     }
 
-    private double getHeapUsage() {
-        java.lang.management.MemoryMXBean memory =
-            java.lang.management.ManagementFactory.getMemoryMXBean();
-        return memory.getHeapMemoryUsage().getUsed() / (1024.0 * 1024.0);
+    // Utility methods for memory and GC statistics
+    private long getUsedMemory() {
+        Runtime rt = Runtime.getRuntime();
+        return rt.totalMemory() - rt.freeMemory();
     }
 
     private String generateString(int length) {
@@ -261,8 +237,41 @@ public class MemoryBenchmark {
             1 + random.nextInt(28));
     }
 
-    public static void main(String[] args) throws Exception {
-        MemoryBenchmark benchmark = new MemoryBenchmark();
-        benchmark.runBenchmarks();
+    private double getHeapUsage() {
+        java.lang.management.MemoryMXBean memory =
+            java.lang.management.ManagementFactory.getMemoryMXBean();
+        return memory.getHeapMemoryUsage().getUsed() / (1024.0 * 1024.0);
+    }
+
+    // Data collection classes
+    private static class MemoryMeasurement {
+
+        final String implementation;
+        final int datasetSize;
+        final int batchNumber;
+        final long timestamp;
+        final double totalMemoryMB;
+        final double memoryPerRecord;
+        final int recordsProcessed;
+        final long gcCount;
+        final long gcTimeMs;
+        final double heapUsageMB;
+        final long insertionTimeMs;
+
+        MemoryMeasurement(String implementation, int datasetSize, int batchNumber,
+            double totalMemoryMB, double memoryPerRecord, int recordsProcessed,
+            long gcCount, long gcTimeMs, double heapUsageMB, long insertionTimeMs) {
+            this.implementation = implementation;
+            this.datasetSize = datasetSize;
+            this.batchNumber = batchNumber;
+            this.timestamp = System.currentTimeMillis();
+            this.totalMemoryMB = totalMemoryMB;
+            this.memoryPerRecord = memoryPerRecord;
+            this.recordsProcessed = recordsProcessed;
+            this.gcCount = gcCount;
+            this.gcTimeMs = gcTimeMs;
+            this.heapUsageMB = heapUsageMB;
+            this.insertionTimeMs = insertionTimeMs;
+        }
     }
 }
