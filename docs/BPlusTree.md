@@ -44,13 +44,134 @@ public class BPlusTree<K extends Number, V> {
       └── Next Leaf Pointer
 ```
 
+```mermaid
+graph TB
+    subgraph "Internal Node Structure"
+        I["Keys: [15, 20]<br>Max 3 keys"]
+        C1["< 15"]
+        C2["15-20"]
+        C3["> 20"]
+        I --> C1
+        I --> C2
+        I --> C3
+    end
+
+    subgraph "Leaf Node Structure"
+        L1["Keys: [10, 12, 14]<br>Values: [[id1], [id2,id3], [id4]]<br>No children, just next pointer"]
+        L2["Keys: [15, 17, 19]<br>Values: [[id5], [id6], [id7]]"]
+        L1 -.-> L2
+    end
+
+    subgraph "Key Points"
+        K1["Internal Nodes:<br>- n keys = n+1 children<br>- Used for routing<br><br>Leaf Nodes:<br>- Store actual values<br>- No children<br>- Linked list structure"]
+    end
+```
 
 ##### Internal Node
+```mermaid
+graph TD
+    subgraph "Internal Node Example"
+        N["15 | 20"]
+    end
+
+    subgraph "Child Pointers"
+        C1["< 15"]
+        C2["≥ 15, < 20"]
+        C3["≥ 20"]
+    end
+
+    N --> C1
+    N --> C2
+    N --> C3
+
+    subgraph "Example with Values"
+        E1["Child1: [8, 12, 14]"]
+        E2["Child2: [15, 17, 19]"]
+        E3["Child3: [20, 23, 25]"]
+    end
+
+    C1 --> E1
+    C2 --> E2
+    C3 --> E3
+
+    subgraph "Rule"
+        R1["For n keys in an internal node:<br/>Number of children = n + 1<br/>For order 4:<br/>Max keys = 3<br/>Max children = 4"]
+    end
+```
 - Internal nodes don't store values, only routing information
 
 ##### Leaf Node
 - Leaf nodes store both keys and values in parallel lists
 - `List<List<V>>` structure supports multiple values per key (for index trees)
+
+1. Non-unique Keys
+   ```mermaid
+   graph TD
+       subgraph "Internal Node"
+           R["age: 25"]
+       end
+   
+       subgraph "Leaf Nodes"
+           L1["age: 20<br>values: [id=101, id=105, id=108]<br>age: 23<br>values: [id=102, id=107]"]
+           L2["age: 25<br>values: [id=103, id=106]<br>age: 28<br>values: [id=104, id=109, id=110]"]
+       end
+   
+       R --> L1
+       R --> L2
+       L1 -.-> L2
+   
+       subgraph "Main Table Data"
+           M1["id=101: {name: 'Alice', age: 20}<br>id=102: {name: 'Bob', age: 23}<br>id=103: {name: 'Charlie', age: 25}<br>id=104: {name: 'Diana', age: 28}<br>id=105: {name: 'Eve', age: 20}<br>id=106: {name: 'Frank', age: 25}<br>id=107: {name: 'Grace', age: 23}<br>id=108: {name: 'Henry', age: 20}<br>id=109: {name: 'Ivy', age: 28}<br>id=110: {name: 'Jack', age: 28}"]
+       end
+   ```
+
+2. Unique Keys
+   ```mermaid
+   graph TD
+       subgraph "Internal Nodes"
+           R["20"]
+           N1["10"]
+           N2["30"]
+       end
+   
+       subgraph "Leaf Nodes"
+           L1["Keys: [5, 8]<br>Values: [[101], [102]]"]
+           L2["Keys: [12, 15, 18]<br>Values: [[103], [104], [105]]"]
+           L3["Keys: [20, 25, 28]<br>Values: [[106], [107], [108]]"]
+           L4["Keys: [32, 35]<br>Values: [[109], [110]]"]
+       end
+   
+       R --> N1
+       R --> N2
+       N1 --> L1
+       N1 --> L2
+       N2 --> L3
+       N2 --> L4
+   
+       L1 -.-> L2
+       L2 -.-> L3
+       L3 -.-> L4
+   
+       subgraph "Key Points"
+           K1["1. Key 20 appears in both internal node and leaf level<br>2. Internal node keys (10, 20, 30) are just for routing<br>3. All actual data is stored in leaf nodes<br>4. Leaf nodes contain all keys in sorted order"]
+       end
+   ```
+
+3. Unique vs Non-Unique Keys
+   ```mermaid
+   graph TD
+   subgraph "Unique Keys Example (Primary Key Tree)"
+   U1["LeafNode<br>keys: [1, 5, 8]<br>values: [<br>  [{name:'Alice', age:20}],<br>  [{name:'Bob', age:25}],<br>  [{name:'Charlie', age:30}]<br>]"]
+   end
+
+       subgraph "Non-Unique Keys Example (Index Tree)"
+           N1["LeafNode<br>keys: [20, 25, 30]<br>values: [<br>  [1, 4, 7],<br>  [2, 5],<br>  [3, 6]<br>]"]
+       end
+   
+       subgraph "Implementation"
+           I1["List<K> keys      // [k1, k2, k3]<br>List<List<V>> values // [v1[], v2[], v3[]]<br><br>values.get(i) corresponds to keys.get(i)"]
+       end
+   ```
 
 ### 1. Insertion Process
 
