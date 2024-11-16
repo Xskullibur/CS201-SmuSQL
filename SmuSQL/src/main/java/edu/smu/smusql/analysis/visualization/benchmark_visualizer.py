@@ -4,489 +4,330 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
-from IPython.display import display, HTML
-from scipy.interpolate import interp1d
 
 
 class BenchmarkVisualizer:
     def __init__(self, csv_files):
-        """
-        Initialize the visualizer with one or more CSV files containing benchmark results.
-
-        Args:
-            csv_files: List of paths to CSV files or single path string
-            Format expected: 'engine_configuration_results.csv'
-
-        Raises:
-            ValueError: If file format is invalid or files cannot be read
-            FileNotFoundError: If any of the specified files don't exist
-        """
         if isinstance(csv_files, str):
             csv_files = [csv_files]
 
-        if not csv_files:
-            raise ValueError("No CSV files provided")
-
-        # Read and combine all CSV files
-        dfs = []
+        self.dfs = []
         for file in csv_files:
-            try:
-                df = pd.read_csv(file)
+            df = pd.read_csv(file)
+            engine_config = file.split('/')[-1].split('_results')[0]
+            df['EngineConfig'] = engine_config
+            self.dfs.append(df)
 
-                # Extract engine name and configuration from filename
-                base_name = os.path.basename(file)
-                # Remove '_results.csv' and split by '_'
-                name_parts = base_name.replace('_results.csv', '').split('_')
+        self.df = pd.concat(self.dfs, ignore_index=True)
+        self.df['Timestamp'] = pd.to_datetime(self.df['Timestamp'])
 
-                if len(name_parts) < 2:
-                    raise ValueError(
-                        f"Invalid filename format for {file}. Expected: engine_configuration_results.csv"
-                    )
+        # Create color palette
+        self.engines = sorted(self.df['EngineConfig'].unique())
+        self.color_palette = sns.color_palette("husl", len(self.engines))
 
-                # Use the first part as engine name and the remaining parts as configuration
-                engine = name_parts[0]
-                config = '_'.join(name_parts[1:])
-
-                # Validate required columns exist
-                required_columns = {
-                    'Timestamp', 'QueryType', 'QueryCount', 'AverageExecutionTime',
-                    'SuccessRate', 'HeapMemoryUsed', 'HeapMemoryDelta'
-                }
-                missing_columns = required_columns - set(df.columns)
-                if missing_columns:
-                    raise ValueError(
-                        f"Missing required columns in {file}: {', '.join(missing_columns)}"
-                    )
-
-                # Add engine and configuration information
-                df['Engine'] = engine
-                df['Configuration'] = config
-                df['EngineType'] = f"{engine}_{config}"
-
-                dfs.append(df)
-
-            except FileNotFoundError:
-                raise FileNotFoundError(f"Could not find CSV file: {file}")
-            except pd.errors.EmptyDataError:
-                raise ValueError(f"CSV file is empty: {file}")
-            except Exception as e:
-                raise ValueError(f"Error processing {file}: {str(e)}")
-
-        # Combine all DataFrames
-        try:
-            self.df = pd.concat(dfs, ignore_index=True)
-        except ValueError as e:
-            raise ValueError(f"Error combining CSV files: {str(e)}")
-
-        # Convert timestamp to datetime
-        try:
-            self.df['Timestamp'] = pd.to_datetime(self.df['Timestamp'])
-        except Exception as e:
-            raise ValueError(f"Error converting timestamps: {str(e)}")
-
-        # Store unique engines and configurations for later use
-        self.engines = sorted(self.df['Engine'].unique())
-        self.configurations = sorted(self.df['Configuration'].unique())
-
-        # Generate a color palette for consistent colors across plots
-        self.n_colors = len(self.df['EngineType'].unique())
-        self.color_palette = sns.color_palette("husl", self.n_colors)
-
-        # Additional validation
-        if self.df.empty:
-            raise ValueError("No data loaded from CSV files")
-
-        # Print summary of loaded data
         print(f"Loaded data from {len(csv_files)} files:")
         print(f"- Total rows: {len(self.df)}")
         print(f"- Engines: {', '.join(self.engines)}")
-        print(f"- Configurations: {', '.join(self.configurations)}")
         print(f"- Query types: {', '.join(sorted(self.df['QueryType'].unique()))}")
 
-    # def show_summary_statistics(self):
-    #     """Display summary statistics for each engine type and query type."""
-    #     summary = self.df.groupby(['EngineType', 'QueryType']).agg({
-    #         'AverageExecutionTime': ['mean', 'std', 'min', 'max'],
-    #         'SuccessRate': 'mean',
-    #         'HeapMemoryUsed': 'mean'
-    #     }).round(2)
-    # 
-    #     display(HTML(summary.to_html()))
+        os.makedirs('results/images', exist_ok=True)
+
+    def show_query_distribution(self):
+        """Display query distribution as a DataFrame with counts and percentages."""
+        query_counts = self.df.groupby(['EngineConfig', 'QueryType'])['QueryCount'].max().unstack()
+
+        # Add total row and column
+        query_counts.loc['Total'] = query_counts.sum()
+        query_counts['Total'] = query_counts.sum(axis=1)
+
+        # Calculate percentages
+        percentages = query_counts.copy()
+        for idx in percentages.index:
+            if idx != 'Total':
+                total = query_counts.loc[idx, 'Total']
+                percentages.loc[idx] = (query_counts.loc[idx] / total * 100)
+
+        # Format output
+        formatted_df = pd.DataFrame()
+        for col in query_counts.columns:
+            formatted_df[col] = query_counts[col].map('{:,.0f}'.format) + \
+                                ' (' + percentages[col].map('{:.1f}%'.format) + ')'
+
+        return formatted_df
 
     def plot_execution_time_distribution(self):
-        """Plot distribution of execution times with log scale and statistical analysis."""
+        """Plot execution time distribution with log scale."""
         plt.figure(figsize=(15, 8))
 
-        # Create boxplot with log scale
-        g = sns.boxplot(data=self.df, x='QueryType', y='AverageExecutionTime',
-                        hue='EngineType', palette=self.color_palette, showfliers=False)
+        # Add a small epsilon to zero/very small values to prevent log(0)
+        plot_data = self.df.copy()
+        min_nonzero = plot_data['AverageExecutionTime'][plot_data['AverageExecutionTime'] > 0].min()
+        epsilon = min_nonzero * 0.1  # Use 10% of smallest non-zero value
+        plot_data.loc[plot_data['AverageExecutionTime'] <= min_nonzero, 'AverageExecutionTime'] = epsilon
 
-        plt.yscale('log')  # Use log scale for better visibility
+        # Create boxplot
+        sns.boxplot(data=plot_data,
+                    x='QueryType',
+                    y='AverageExecutionTime',
+                    hue='EngineConfig',
+                    palette=self.color_palette,
+                    showfliers=False)
+
+        plt.yscale('log')  # Set log scale for y-axis
         plt.xticks(rotation=45)
         plt.title('Execution Time Distribution by Query Type and Engine (Log Scale)')
         plt.ylabel('Average Execution Time (ms) - Log Scale')
-        plt.legend(title='Engine', bbox_to_anchor=(1.05, 1))
+        plt.xlabel('Query Type')
+        plt.legend(title='Engine Configuration', bbox_to_anchor=(1.05, 1))
+
+        # Add grid for both major and minor lines
+        plt.grid(True, alpha=0.3, which='both')
+
+        # Set reasonable y-axis limits
+        plt.ylim(min_nonzero * 0.1, plot_data['AverageExecutionTime'].max() * 2)
+
+        # Print summary statistics
+        print("\nSummary Statistics by Query Type and Engine:")
+        summary = plot_data.groupby(['QueryType', 'EngineConfig'])['AverageExecutionTime'].agg([
+            'count', 'mean', 'std', 'min', 'max'
+        ]).round(3)
+        print(summary)
+
         plt.tight_layout()
+        plt.savefig('results/images/execution_time_distribution.png', dpi=300)
         plt.show()
 
-        # # Display statistics for each query type
-        # for query_type, stats in stats_by_type.items():
-        #     display(HTML(f"<h3>Statistical Summary for {query_type}</h3>"))
-        #     display(HTML(stats.style
-        #                  .background_gradient(subset=['Mean', 'Median', 'Std'])
-        #                  .to_html()))
-        #
-        # return stats_by_type
-
     def plot_success_rates(self):
-        """Plot success rates for different query types and engines."""
-        success_rates = self.df.groupby(['EngineType', 'QueryType'])['SuccessRate'].mean().unstack()
+        """Plot success rates by engine and query type."""
+        success_rates = self.df.groupby(['EngineConfig', 'QueryType'])['SuccessRate'].mean().unstack()
 
         plt.figure(figsize=(12, 6))
-        success_rates.plot(kind='bar', width=0.8)
-        plt.title('Success Rates by Engine and Query Type')
+        ax = success_rates.plot(kind='bar', width=0.8)
+        plt.title('Success Rates by Engine Configuration and Query Type')
         plt.ylabel('Success Rate (%)')
         plt.legend(title='Query Type', bbox_to_anchor=(1.05, 1))
         plt.tick_params(axis='x', rotation=45)
+
+        # Add value labels
+        for container in ax.containers:
+            ax.bar_label(container, fmt='%.1f%%', padding=3)
+
+        plt.grid(True, alpha=0.3)
         plt.tight_layout()
-        plt.show()
-
-    def plot_memory_usage_over_time(self):
-        """
-        Plot memory delta trends for each query type, comparing all engines within each plot.
-        Shows the average memory change per operation type over time.
-        """
-        query_types = sorted(self.df['QueryType'].unique())
-        num_query_types = len(query_types)
-
-        # Calculate subplot layout
-        num_cols = 2
-        num_rows = (num_query_types + num_cols - 1) // num_cols
-
-        fig, axes = plt.subplots(num_rows, num_cols,
-                                 figsize=(15, 5 * num_rows),
-                                 squeeze=False)
-
-        axes_flat = axes.flatten()
-
-        # Create a color map for engines
-        engine_types = sorted(self.df['EngineType'].unique())
-        colors = sns.color_palette("husl", len(engine_types))
-        engine_colors = dict(zip(engine_types, colors))
-
-        # Plot for each query type
-        for idx, query_type in enumerate(query_types):
-            ax = axes_flat[idx]
-
-            query_data = self.df[self.df['QueryType'] == query_type]
-
-            for engine_type in engine_types:
-                engine_data = query_data[query_data['EngineType'] == engine_type]
-                if not engine_data.empty:
-                    engine_data = engine_data.sort_values('QueryCount')
-
-                    # Use HeapMemoryDelta instead of HeapMemoryUsed
-                    memory_mb = engine_data['HeapMemoryDelta'] / 1e6
-
-                    # Plot moving average for smoother visualization
-                    window_size = 50  # Adjust as needed
-                    memory_ma = memory_mb.rolling(window=window_size, min_periods=1).mean()
-
-                    ax.plot(engine_data['QueryCount'],
-                            memory_ma,
-                            label=engine_type,
-                            color=engine_colors[engine_type],
-                            alpha=0.7)
-
-                    # # Add scatter plot for actual values with low alpha
-                    # ax.scatter(engine_data['QueryCount'],
-                    #            memory_mb,
-                    #            color=engine_colors[engine_type],
-                    #            alpha=0.1,
-                    #            s=10)
-
-            ax.set_title(f'Memory Impact - {query_type}')
-            ax.set_xlabel('Number of Queries')
-            ax.set_ylabel('Memory Change per Operation (MB)')
-            ax.grid(True, alpha=0.3)
-            ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
-
-            # Add horizontal line at y=0 to show baseline
-            ax.axhline(y=0, color='black', linestyle='--', alpha=0.3)
-
-        # Remove any unused subplots
-        for idx in range(num_query_types, len(axes_flat)):
-            fig.delaxes(axes_flat[idx])
-
-        plt.tight_layout()
+        plt.savefig('results/images/success_rates.png', dpi=300)
         plt.show()
 
     def plot_performance_comparison(self):
-        """Create comparative visualization with log scale where appropriate."""
-        fig, axes = plt.subplots(2, 2, figsize=(20, 15))
+        """Plot performance comparison metrics with simplified average execution time."""
+        fig = plt.figure(figsize=(15, 12))
 
-        # 1. Average execution time by engine (log scale)
-        avg_time = self.df.groupby('EngineType')['AverageExecutionTime'].mean()
-        avg_time.plot(kind='bar', ax=axes[0, 0], color=self.color_palette)
-        axes[0, 0].set_yscale('log')
-        axes[0, 0].set_title('Average Execution Time by Engine (Log Scale)')
-        axes[0, 0].set_ylabel('Time (ms) - Log Scale')
-        axes[0, 0].tick_params(axis='x', rotation=45)
+        # Create a grid for subplots - 2x2 grid
+        gs = fig.add_gridspec(2, 2)
 
-        # 2. Query type distribution
-        query_counts = self.df['QueryType'].value_counts()
-        query_counts.plot(kind='pie', ax=axes[0, 1], autopct='%1.1f%%')
-        axes[0, 1].set_title('Query Type Distribution')
+        # Average execution time by engine (simplified)
+        ax1 = fig.add_subplot(gs[0, :])
+        avg_time = self.df.groupby('EngineConfig')['AverageExecutionTime'].mean()
+        avg_time.plot(kind='bar', ax=ax1, color=self.color_palette)
+        ax1.set_title('Average Execution Time by Engine')
+        ax1.set_xlabel('Engine Configuration')
+        ax1.set_ylabel('Time (ms)')
+        ax1.grid(True, alpha=0.3)
+        ax1.tick_params(axis='x', rotation=45)
 
-        # 3. Success rate trends
-        for i, engine_type in enumerate(sorted(self.df['EngineType'].unique())):
-            engine_data = self.df[self.df['EngineType'] == engine_type]
-            axes[1, 0].plot(engine_data['QueryCount'],
-                            engine_data['SuccessRate'],
-                            label=engine_type,
-                            color=self.color_palette[i])
-        axes[1, 0].set_title('Success Rate Trends')
-        axes[1, 0].set_xlabel('Number of Queries')
-        axes[1, 0].set_ylabel('Success Rate (%)')
-        axes[1, 0].legend(bbox_to_anchor=(1.05, 1))
+        # Add value labels
+        ax1.bar_label(ax1.containers[0], fmt='%.2f', padding=3)
 
-        # 4. Memory usage patterns (log scale)
-        sns.boxplot(data=self.df, x='EngineType', y='HeapMemoryUsed',
-                    ax=axes[1, 1], palette=self.color_palette, showfliers=False)
-        axes[1, 1].set_yscale('log')
-        axes[1, 1].set_title('Memory Usage Patterns (Log Scale)')
-        axes[1, 1].set_ylabel('Heap Memory Used (bytes) - Log Scale')
-        axes[1, 1].tick_params(axis='x', rotation=45)
+        # Total execution time by engine
+        ax2 = fig.add_subplot(gs[1, 0])
+        total_times = self.df.groupby(['EngineConfig'])['TotalExecutionTime'].sum()
+        total_times.plot(kind='bar', ax=ax2)
+        ax2.set_title('Total Execution Time by Engine')
+        ax2.set_xlabel('Engine Configuration')
+        ax2.set_ylabel('Total Time (ms)')
+        ax2.grid(True, alpha=0.3)
+        ax2.tick_params(axis='x', rotation=45)
+
+        # Add value labels
+        ax2.bar_label(ax2.containers[0], fmt='%.2f', padding=3)
+
+        # Query distribution pie chart
+        ax3 = fig.add_subplot(gs[1, 1])
+        query_dist = self.df.groupby(['QueryType'])['QueryCount'].max()
+        total_queries = query_dist.sum()
+        query_dist_pct = (query_dist / total_queries) * 100
+
+        colors = plt.cm.Set3(np.linspace(0, 1, len(query_dist)))
+        wedges, texts, autotexts = ax3.pie(query_dist_pct,
+                                           labels=query_dist.index,
+                                           autopct='%1.1f%%',
+                                           colors=colors,
+                                           textprops={'fontsize': 9})
+
+        # Rotate and format the label texts for better readability
+        plt.setp(texts, rotation_mode="anchor", ha='center')
+        plt.setp(autotexts, size=8, weight="bold")
+
+        ax3.set_title('Query Type Distribution', pad=10)
 
         plt.tight_layout()
+
+        # Save individual plots
+        fig.savefig('results/images/performance_comparison_overview.png', dpi=300, bbox_inches='tight')
+
+        # Save average execution time subplot with legend and title
+        ax1.legend(title='Engine Configuration', bbox_to_anchor=(1.02, 1), loc='upper left')
+        extent = ax1.get_window_extent().transformed(fig.dpi_scale_trans.inverted())
+        fig.savefig('results/images/avg_execution_time_by_engine.png', bbox_inches=extent.expanded(1.6, 1.8), dpi=300)
+
+        # Save total execution time subplot with legend and title
+        ax2.legend(title='Engine Configuration', bbox_to_anchor=(1.02, 1), loc='upper left')
+        extent = ax2.get_window_extent().transformed(fig.dpi_scale_trans.inverted())
+        fig.savefig('results/images/total_execution_time_by_engine.png', bbox_inches=extent.expanded(1.8, 1.8), dpi=300)
+
+        # Save query type distribution subplot with title
+        extent = ax3.get_window_extent().transformed(fig.dpi_scale_trans.inverted())
+        fig.savefig('results/images/query_type_distribution.png', bbox_inches=extent.expanded(1.4, 1.8), dpi=300)
         plt.show()
 
-        # # Generate performance statistics
-        # perf_stats = self.df.groupby('EngineType').agg({
-        #     'AverageExecutionTime': ['mean', 'median', 'std'],
-        #     'SuccessRate': 'mean',
-        #     'HeapMemoryUsed': ['mean', 'median', 'std']
-        # }).round(3)
-        #
-        # display(HTML("<h3>Performance Statistics by Engine</h3>"))
-        # display(HTML(perf_stats.to_html()))
-        #
-        # return perf_stats
-
-    def interpolate_data(self, x, y, num_points=1000):
-        """
-        Create a smooth interpolation between data points, handling duplicate x values.
-
-        Args:
-            x: x-axis values
-            y: y-axis values
-            num_points: number of points to interpolate
-
-        Returns:
-            Tuple of (x_new, y_new) interpolated values
-        """
-        if len(x) < 2:
-            return x, y
-
-        # Convert to numpy arrays
-        x = np.array(x)
-        y = np.array(y)
-
-        # Handle duplicate x values by averaging corresponding y values
-        unique_x = np.unique(x)
-        averaged_y = [np.mean(y[x == x_val]) for x_val in unique_x]
-
-        # If we have too few points for cubic interpolation, use linear
-        kind = 'cubic' if len(unique_x) > 3 else 'linear'
-
-        # Create interpolation function
-        x_new = np.linspace(min(unique_x), max(unique_x), num_points)
-        interpolator = interp1d(unique_x, averaged_y, kind=kind, bounds_error=False, fill_value='extrapolate')
-        y_new = interpolator(x_new)
-
-        return x_new, y_new
-
     def plot_query_time_trends(self):
-        """
-        Plot execution time trends with smooth interpolation between data points,
-        handling duplicate query counts by averaging.
-        """
+        """Plot query time trends with linear scale."""
         query_types = sorted(self.df['QueryType'].unique())
-        num_query_types = len(query_types)
-        num_cols = 2
-        num_rows = (num_query_types + num_cols - 1) // num_cols
+        cols = 2
+        rows = (len(query_types) + cols - 1) // cols
 
-        fig, axes = plt.subplots(num_rows, num_cols, figsize=(15, 5 * num_rows), squeeze=False)
+        fig, axes = plt.subplots(rows, cols, figsize=(15, 5 * rows))
         axes_flat = axes.flatten()
 
         for idx, query_type in enumerate(query_types):
-            ax = axes_flat[idx]
             query_data = self.df[self.df['QueryType'] == query_type]
+            ax = axes_flat[idx]
 
-            for engine_type in sorted(self.df['EngineType'].unique()):
-                engine_data = query_data[query_data['EngineType'] == engine_type]
+            # Calculate y-axis max for this query type to set consistent range
+            max_time = query_data['AverageExecutionTime'].max()
+
+            for engine in self.engines:
+                engine_data = query_data[query_data['EngineConfig'] == engine]
                 if not engine_data.empty:
-                    # Sort and handle duplicate query counts
-                    engine_data = engine_data.sort_values('QueryCount')
-
-                    # Group by QueryCount and calculate mean execution time
-                    grouped_data = engine_data.groupby('QueryCount')['AverageExecutionTime'].mean().reset_index()
-
-                    # Interpolate the averaged data
-                    x_smooth, y_smooth = self.interpolate_data(
-                        grouped_data['QueryCount'].values,
-                        grouped_data['AverageExecutionTime'].values
-                    )
-
-                    # Plot smooth line
-                    ax.plot(x_smooth, y_smooth,
-                            label=engine_type,
-                            alpha=0.7)
-
-                    # Add subtle markers for actual data points
-                    ax.scatter(grouped_data['QueryCount'],
-                               grouped_data['AverageExecutionTime'],
-                               alpha=0.2,
-                               s=20)
+                    ax.plot(engine_data['QueryCount'],
+                            engine_data['AverageExecutionTime'],
+                            label=engine,
+                            marker='.',
+                            alpha=0.7,
+                            markersize=4)
 
             ax.set_title(f'{query_type} Performance Trends')
             ax.set_xlabel('Number of Queries')
             ax.set_ylabel('Average Execution Time (ms)')
             ax.grid(True, alpha=0.3)
-            ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+            ax.legend(fontsize='small')
+            ax.yaxis.set_major_formatter(plt.FormatStrFormatter('%.2f'))
+            ax.set_ylim(-0.01, max_time * 1.1)
 
-        for idx in range(num_query_types, len(axes_flat)):
+        # Remove empty subplots
+        for idx in range(len(query_types), len(axes_flat)):
             fig.delaxes(axes_flat[idx])
 
+        # Print summary statistics for each query type
+        print("\nPerformance Trend Summary Statistics:")
+        for query_type in query_types:
+            print(f"\n{query_type}:")
+            query_stats = self.df[self.df['QueryType'] == query_type].groupby('EngineConfig')[
+                'AverageExecutionTime'].agg([
+                'mean', 'std', 'min', 'max'
+            ]).round(3)
+            print(query_stats)
+
         plt.tight_layout()
+        fig.savefig('results/images/query_time_trends_overview.png', dpi=300, bbox_inches='tight')
         plt.show()
 
     def plot_range_vs_equals_comparison(self):
-        """Compare range vs equals operations with log scale and statistics."""
+        """Compare range vs equals operations."""
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
 
-        select_ops = self.df[self.df['QueryType'].str.contains('SELECT')]
-        update_ops = self.df[self.df['QueryType'].str.contains('UPDATE')]
+        select_data = self.df[self.df['QueryType'].isin(['RANGE_SELECT', 'EQUALS_SELECT'])]
+        update_data = self.df[self.df['QueryType'].isin(['RANGE_UPDATE', 'EQUALS_UPDATE'])]
 
-        # Plot SELECT operations with log scale
-        sns.boxplot(data=select_ops,
-                    x='EngineType',
-                    y='AverageExecutionTime',
-                    hue='QueryType',
-                    palette=sns.color_palette("Set2", 2),
-                    ax=ax1)
+        # Plot SELECT operations
+        sns.boxplot(data=select_data, x='EngineConfig', y='AverageExecutionTime',
+                    hue='QueryType', ax=ax1)
         ax1.set_yscale('log')
-        ax1.set_title('SELECT Operations: Range vs Equals (Log Scale)')
+        ax1.set_title('SELECT Operations: Range vs Equals')
         ax1.set_xticklabels(ax1.get_xticklabels(), rotation=45)
-        ax1.legend(bbox_to_anchor=(1.05, 1))
-        ax1.set_ylabel('Average Execution Time (ms) - Log Scale')
-        ax1.set_xlabel('Engine Type')
+        ax1.grid(True, alpha=0.3)
 
-        # Plot UPDATE operations with log scale
-        sns.boxplot(data=update_ops,
-                    x='EngineType',
-                    y='AverageExecutionTime',
-                    hue='QueryType',
-                    palette=sns.color_palette("Set2", 2),
-                    ax=ax2)
+        # Plot UPDATE operations
+        sns.boxplot(data=update_data, x='EngineConfig', y='AverageExecutionTime',
+                    hue='QueryType', ax=ax2)
         ax2.set_yscale('log')
-        ax2.set_title('UPDATE Operations: Range vs Equals (Log Scale)')
+        ax2.set_title('UPDATE Operations: Range vs Equals')
         ax2.set_xticklabels(ax2.get_xticklabels(), rotation=45)
-        ax2.legend(bbox_to_anchor=(1.05, 1))
-        ax2.set_ylabel('Average Execution Time (ms) - Log Scale')
-        ax2.set_xlabel('Engine Type')
+        ax2.grid(True, alpha=0.3)
 
         plt.tight_layout()
+        plt.savefig('results/images/range_vs_equals_comparison.png', dpi=300)
         plt.show()
-
-        # # Generate statistical comparison
-        # stats_dfs = []
-        # for ops, op_type in [(select_ops, 'SELECT'), (update_ops, 'UPDATE')]:
-        #     stats_df = ops.groupby(['EngineType', 'QueryType'])['AverageExecutionTime'].agg([
-        #         'mean',
-        #         'median',
-        #         'std',
-        #         'min',
-        #         'max',
-        #         lambda x: x.quantile(0.25),  # Q1
-        #         lambda x: x.quantile(0.75),  # Q3
-        #     ]).round(3)
-        #     stats_df.columns = ['Mean', 'Median', 'Std', 'Min', 'Max', 'Q1', 'Q3']
-        #     display(HTML(f"<h3>Statistical Summary for {op_type} Operations</h3>"))
-        #     display(HTML(stats_df.to_html()))
-        #     stats_dfs.append(stats_df)
-        #
-        # return stats_dfs
 
     def plot_configuration_impact(self):
-        """Compare performance between different configurations of the same engine."""
-        plt.figure(figsize=(15, 8))
+        """Compare performance between different configurations."""
+        # Identify configurations (with/without cache)
+        cache_configs = self.df['EngineConfig'].str.contains('withcache|nocache')
+        if not cache_configs.any():
+            print("No cache configurations found in the data")
+            return
 
-        for engine in self.engines:
-            engine_data = self.df[self.df['Engine'] == engine]
-            configs = sorted(engine_data['Configuration'].unique())
+        nocache_data = self.df[self.df['EngineConfig'].str.contains('nocache')]
+        withcache_data = self.df[self.df['EngineConfig'].str.contains('withcache')]
 
-            # Skip if only one configuration
-            if len(configs) < 2:
-                continue
+        if nocache_data.empty or withcache_data.empty:
+            print("Missing data for cache comparison")
+            return
 
-            # Use first configuration as baseline
-            base_config = configs[0]
-            base_data = engine_data[engine_data['Configuration'] == base_config]
+        improvements = []
+        for query_type in sorted(self.df['QueryType'].unique()):
+            nocache_time = nocache_data[nocache_data['QueryType'] == query_type]['AverageExecutionTime'].mean()
+            withcache_time = withcache_data[withcache_data['QueryType'] == query_type]['AverageExecutionTime'].mean()
 
-            improvements_data = []
+            if nocache_time > 0:
+                improvement = ((nocache_time - withcache_time) / nocache_time) * 100
+                improvements.append({
+                    'QueryType': query_type,
+                    'Improvement': improvement
+                })
 
-            for config in configs[1:]:
-                config_data = engine_data[engine_data['Configuration'] == config]
+        if improvements:
+            improvement_df = pd.DataFrame(improvements)
+            plt.figure(figsize=(12, 6))
+            ax = sns.barplot(data=improvement_df, x='QueryType', y='Improvement')
+            plt.title('Performance Impact of Caching')
+            plt.ylabel('Performance Improvement (%)')
+            plt.xticks(rotation=45)
+            plt.axhline(y=0, color='black', linestyle='-', alpha=0.2)
+            plt.grid(True, alpha=0.3)
 
-                for query_type in sorted(engine_data['QueryType'].unique()):
-                    base_time = base_data[base_data['QueryType'] == query_type]['AverageExecutionTime'].mean()
-                    config_time = config_data[config_data['QueryType'] == query_type]['AverageExecutionTime'].mean()
+            # Add value labels
+            for i in ax.containers:
+                ax.bar_label(i, fmt='%.1f%%')
 
-                    if base_time > 0:
-                        improvement = ((base_time - config_time) / base_time) * 100
-                        improvements_data.append({
-                            'Engine': engine,
-                            'Configuration': config,
-                            'QueryType': query_type,
-                            'Improvement': improvement
-                        })
-
-            if improvements_data:
-                improvements_df = pd.DataFrame(improvements_data)
-                pivot_data = improvements_df.pivot(index='QueryType',
-                                                   columns='Configuration',
-                                                   values='Improvement')
-
-                ax = pivot_data.plot(kind='bar', width=0.8)
-                plt.title(f'Performance Impact of Configurations for {engine}\nCompared to {base_config}')
-                plt.ylabel('Performance Improvement (%)')
-                plt.xlabel('Query Type')
-                plt.axhline(y=0, color='black', linestyle='-', alpha=0.2)
-                plt.grid(True, axis='y')
-                plt.xticks(rotation=45)
-
-                # Add value labels
-                for container in ax.containers:
-                    ax.bar_label(container, fmt='%.1f%%', padding=3)
-
-        plt.tight_layout()
-        plt.show()
+            plt.tight_layout()
+            plt.savefig('results/images/configuration_impact.png', dpi=300)
+            plt.show()
 
 
 if __name__ == "__main__":
+    # Example usage
     visualizer = BenchmarkVisualizer([
-        'results/bplus_nocache_results.csv',
-        'results/bplus_withcache_results.csv',
-        'results/hashmap_default_results.csv',
-        'results/skiphash_default_results.csv',
-        'results/skipindexed_default_results.csv',
+        'results/bplusarray_nocache_results.csv',
+        'results/bplusarray_withcache_results.csv'
     ])
 
-    visualizer.show_summary_statistics()
+    # Display query distribution
+    print("\nQuery Distribution:")
+    print(visualizer.show_query_distribution())
+
+    # Generate all plots
     visualizer.plot_execution_time_distribution()
     visualizer.plot_success_rates()
-    visualizer.plot_memory_usage_over_time()
     visualizer.plot_performance_comparison()
     visualizer.plot_query_time_trends()
     visualizer.plot_range_vs_equals_comparison()

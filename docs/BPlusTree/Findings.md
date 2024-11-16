@@ -14,7 +14,7 @@ private List<Integer> combineResults(List<Integer> leftResult, List<Integer> rig
 }
 ```
 
-![alt text](..\src\combineResults\pre_combineResults_optimization.png)
+![alt text](..\src\combineResults\combineResults_before.png)
 
 ### Observations
 #### AND Operations

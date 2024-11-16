@@ -24,6 +24,7 @@ public class MemoryBenchmark {
     private final List<MemoryMeasurement> measurements = new ArrayList<>();
     private final Random random = new Random(42);
     private final BPlusTreeEngine bPlusTreeEngine;
+    private final BPlusTreeEngine bPlusTreeEngineCache;
     private final SkipLinkedListIndexedEngine skipListEngine;
     private final SkipHashEngine skipHashEngine;
     private final HashMapEngine hashMapEngine;
@@ -32,7 +33,8 @@ public class MemoryBenchmark {
     private final UniqueIdManager idManager;
 
     public MemoryBenchmark() {
-        this.bPlusTreeEngine = new BPlusTreeEngine();
+        this.bPlusTreeEngine = new BPlusTreeEngine(false);
+        this.bPlusTreeEngineCache = new BPlusTreeEngine(true);
         this.skipListEngine = new SkipLinkedListIndexedEngine();
         this.skipHashEngine = new SkipHashEngine();
         this.hashMapEngine = new HashMapEngine();
@@ -53,6 +55,7 @@ public class MemoryBenchmark {
             System.out.println("\n=== Testing Dataset Size: " + size + " ===");
 
             testImplementation(bPlusTreeEngine, size, "BPlusTree");
+            testImplementation(bPlusTreeEngineCache, size, "BPlusTreeCache");
             testImplementation(skipListEngine, size, "SkipList");
             testImplementation(skipHashEngine, size, "SkipHash");
             testImplementation(hashMapEngine, size, "HashMap");
