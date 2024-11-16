@@ -69,7 +69,7 @@ public class SkipHashEngine implements IEngine {
             return "Table " + tableName + " does not exist";
         }
 
-        List<String> columns = table.getColumns();
+        List<String> columns = table.getColumnNames();
         List<String> colVals = parseColumns(valueList.split(" "), 0);
 
         if (columns.size() != colVals.size()) {
@@ -141,18 +141,32 @@ public class SkipHashEngine implements IEngine {
         List<String> keysToUpdate = whereConditions.isEmpty()
                 ? new ArrayList<>(table.getData().keySet()) // Update all rows if no WHERE clause
                 : applySelectLogic(table, whereConditions).stream().map(Row::getId).collect(Collectors.toList());
-
+    
         int updatedCount = 0;
         for (String id : keysToUpdate) {
             Row row = table.getRow(id);
             if (row != null) {
-                updates.forEach(row.getData()::put);
-                table.updateRow(id, row.getData()); // Update the row in the table
+                // Create a new data map that is a copy of the current data
+                Map<String, String> newData = new HashMap<>();
+                for (String columnName : table.getColumnNames()) {
+                    // Get the current value as string
+                    Object value = row.getData().get(columnName);
+                    if (value != null) {
+                        newData.put(columnName, value.toString());
+                    } else {
+                        newData.put(columnName, null);
+                    }
+                }
+                // Apply updates
+                newData.putAll(updates);
+                // Call table.updateRow with the id and newData
+                table.updateRow(id, newData);
                 updatedCount++;
             }
         }
         return updatedCount;
     }
+    
 
     public String delete(String[] tokens) {
         // `DELETE FROM table_name WHERE condition1 AND/OR condition2`
@@ -180,7 +194,7 @@ public class SkipHashEngine implements IEngine {
 
         List<String[]> whereConditions = parseWhereClause(tokens, 4);
         List<Row> selectedRows = applySelectLogic(table, whereConditions);
-        return formatSelectResults(selectedRows, table.getColumns());
+        return formatSelectResults(selectedRows, table.getColumnNames());
     }
 
     // Helper methods for parsing, condition handling, and formatting...

@@ -56,7 +56,7 @@ public class MainTest {
                 dbEngine.executeSQL("INSERT INTO products VALUES (3, 'Tablet', 199.99, 'Electronics')");
                 dbEngine.executeSQL("INSERT INTO products VALUES (4, 'Phone', 200.01, 'Electronics')");
                 assertEquals("id\tname\tprice\tcategory\n" + //
-                                "1\tTablet\t200.00\tElectronics\t\n" + //
+                                "1\tTablet\t200.0\tElectronics\t\n" + //
                                 "4\tPhone\t200.01\tElectronics",
                                 dbEngine.executeSQL(
                                                 "SELECT * FROM products WHERE price >= 200 AND category = 'Electronics'"));

@@ -24,7 +24,8 @@ import java.util.List;
 import java.util.Map;
 
 enum EngineType {
-    BPLUSHASHMAP, BPLUSARRAY, BPLUSMULTIRANGEARRAY, HASHMAP, SKIPHASH, SKIPINDEXED
+    BPLUSHASHMAP, BPLUSARRAY, BPLUSMULTIRANGEARRAY, HASHMAP, 
+    SKIPHASH, SKIPINDEXED
 }
 
 enum QueryType {
@@ -109,14 +110,14 @@ public class SQLBenchmark extends AbstractBenchmark {
         );
 
 //        engineConfigs.put(EngineType.BPLUSHASHMAP, bplusConfigs);
-        engineConfigs.put(EngineType.BPLUSARRAY, bplusConfigs);
+        // engineConfigs.put(EngineType.BPLUSARRAY, bplusConfigs);
 //        engineConfigs.put(EngineType.BPLUSMULTIRANGEARRAY, bplusConfigs);
         engineConfigs.put(EngineType.SKIPHASH,
             Collections.singletonList(new EngineConfig.Builder().build()));
-        engineConfigs.put(EngineType.HASHMAP,
-            Collections.singletonList(new EngineConfig.Builder().build()));
-        engineConfigs.put(EngineType.SKIPINDEXED,
-            Collections.singletonList(new EngineConfig.Builder().build()));
+        // engineConfigs.put(EngineType.HASHMAP,
+        //     Collections.singletonList(new EngineConfig.Builder().build()));
+        // engineConfigs.put(EngineType.SKIPINDEXED,
+        //     Collections.singletonList(new EngineConfig.Builder().build()));
 
         // Run benchmarks for each engine and configuration
         for (Map.Entry<EngineType, List<EngineConfig>> entry : engineConfigs.entrySet()) {
