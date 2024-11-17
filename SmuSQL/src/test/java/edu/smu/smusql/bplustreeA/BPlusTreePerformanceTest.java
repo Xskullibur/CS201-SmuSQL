@@ -1,5 +1,6 @@
 package edu.smu.smusql.bplustreeA;
 
+import edu.smu.smusql.bplustreeA.bplustreeArray.BPlusTreeArrayEngine;
 import edu.smu.smusql.bplustreeA.bplustreeHashmap.BPlusTreeEngine;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
@@ -18,11 +19,11 @@ class BPlusTreePerformanceTest {
         "'Diana'", "'Eve'", "'Frank'", "'Grace'", "'Henry'"};
     private static final String[] CITIES = {"'New York'", "'Los Angeles'", "'Chicago'", "'Houston'",
         "'Phoenix'", "'Philadelphia'", "'San Antonio'", "'San Diego'", "'Dallas'", "'San Jose'"};
-    private static BPlusTreeEngine engine;
+    private static BPlusTreeArrayEngine engine;
 
     @BeforeEach
     void setUp() {
-        engine = new BPlusTreeEngine();
+        engine = new BPlusTreeArrayEngine(true);
         engine.executeSQL("CREATE TABLE performance_test (id, name, age, salary, city)");
     }
 

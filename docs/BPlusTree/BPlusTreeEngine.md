@@ -211,6 +211,7 @@ evaluate.
 #### Benchmark Results
 
 ![img.png](../src/BPlusTree_OrderAnalysis_Results.png)
+[BPlusTreeSizeAnalysis](../../SmuSQL/src/main/java/edu/smu/smusql/analysis/BPlusTreeSizeAnalysis.java)
 
 - Smaller datasets (1K) perform well with order 16
 - Medium datasets (10K) benefit from larger order (64)
