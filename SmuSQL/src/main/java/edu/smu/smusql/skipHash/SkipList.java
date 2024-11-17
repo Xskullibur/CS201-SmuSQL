@@ -18,13 +18,17 @@ public class SkipList<E extends Comparable<E>> implements Iterable<E> {
     private Node<E> head;
     private int levels;
     private Random random;
-    private static final double PROBABILITY = 0.4;
-    private static final int MAX_LEVEL = 17;
+    private static final double PROBABILITY = 0.5;
+    private static final int MAX_LEVEL = 9999;
 
     public SkipList() {
         head = new Node<>(null, null, null);
         levels = 1; // Initially, we have 1 level
         random = new Random();
+    }
+
+    public String getInfo(){
+        return "prob:" + PROBABILITY + ", level : " + MAX_LEVEL;
     }
 
     public boolean isEmpty() {

@@ -16,6 +16,11 @@ public class SkipHashEngine implements IEngine {
         data.clear();
     }
 
+    public String printEngineInfo(){
+        SkipList<String> sl = new SkipList<>();
+        return sl.getInfo();
+    }
+
     public String executeSQL(String query) {
         String[] tokens = tokenize(query);
         String command = tokens[0].toUpperCase(); // Commands are always case-insensitive
