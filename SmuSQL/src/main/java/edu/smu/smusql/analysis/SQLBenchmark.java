@@ -44,6 +44,8 @@ class SQLEngineFactory {
             case HASHMAP:
                 return new HashMapEngine();
             case SKIPHASH:
+                SkipHashEngine res = new SkipHashEngine();
+                System.out.println(res.printEngineInfo());
                 return new SkipHashEngine();
             case SKIPINDEXED:
                 return new SkipLinkedListIndexedEngine();
@@ -95,7 +97,7 @@ public class SQLBenchmark extends AbstractBenchmark {
 
     public static void main(String[] args) {
         long seed = 12345L;
-        int numberOfQueries = 100000;
+        int numberOfQueries = 570000;
 
         // Define engines and their configurations
         Map<EngineType, List<EngineConfig>> engineConfigs = new HashMap<>();
@@ -106,8 +108,8 @@ public class SQLBenchmark extends AbstractBenchmark {
             new EngineConfig.Builder().addParameter("useCache", false).build()
         );
 
-        engineConfigs.put(EngineType.BPLUSHASHMAP, bplusConfigs);
-        engineConfigs.put(EngineType.BPLUSARRAY, bplusConfigs);
+       // engineConfigs.put(EngineType.BPLUSHASHMAP, bplusConfigs);
+        //engineConfigs.put(EngineType.BPLUSARRAY, bplusConfigs);
         engineConfigs.put(EngineType.SKIPHASH,
             Collections.singletonList(new EngineConfig.Builder().build()));
         // engineConfigs.put(EngineType.HASHMAP,
