@@ -1,17 +1,18 @@
 package edu.smu.smusql.skipHash;
 
-public class Indexing implements Comparable<Indexing> {
-    private String columnValue; // The value of the column being indexed
-    private String primaryKey; // The primary key (ID) of the original row
+class Indexing implements Comparable<Indexing> {
+    private Object columnValue;
+    private String primaryKey;
+    private DataType dataType; // Store the data type
 
-    // Constructor to initialize the Indexing object
-    public Indexing(String columnValue, String primaryKey) {
+    public Indexing(Object columnValue, String primaryKey, DataType dataType) {
         this.columnValue = columnValue;
         this.primaryKey = primaryKey;
+        this.dataType = dataType;
     }
 
     // Getter for columnValue
-    public String getColumnValue() {
+    public Object getColumnValue() {
         return columnValue;
     }
 
@@ -34,47 +35,32 @@ public class Indexing implements Comparable<Indexing> {
     // columnValue, and then primaryKey
     @Override
     public int compareTo(Indexing other) {
-        // Try to compare columnValue as numbers
-        int comparisonResult = 0;
-        if(this.columnValue.contains(".") || other.columnValue.contains(".")){
-            comparisonResult = compareAsDoubles(this.columnValue, other.columnValue);
-        } else {
-            comparisonResult = compareAsInteger(columnValue, other.columnValue);
+        if (this.dataType != other.dataType) {
+            throw new IllegalArgumentException("Cannot compare different data types");
         }
 
-        return comparisonResult;
-    }
-
-    // Helper method to compare two values as numbers, falling back to string
-    // comparison, used for eevrything but getValuesEqual.
-
-    private int compareAsInteger(String value1, String value2){
-        try {
-            // Try to parse both values as integers
-            Integer num1 = Integer.parseInt(value1);
-            Integer num2 = Integer.parseInt(value2);
-
-            // Compare as numbers if both values are numeric
-            return num1.compareTo(num2);
-        } catch (NumberFormatException e){
-            return value1.compareTo(value2);
+        if (this.columnValue == null && other.columnValue == null) {
+            return 0;
+        } else if (this.columnValue == null) {
+            return -1; // Consider null less than any columnValue
+        } else if (other.columnValue == null) {
+            return 1;
         }
-    }
-    private int compareAsDoubles(String value1, String value2) {
-        try {
-            // Try to parse both values as integers
-            Double num1 = Double.parseDouble(value1);
-            Double num2 = Double.parseDouble(value2);
 
-            // Compare as numbers if both values are numeric
-            return num1.compareTo(num2);
-        } catch (NumberFormatException e) {
-            // If either value is not numeric, compare as strings
-            return value1.compareTo(value2);
+        switch (this.dataType) {
+            case INTEGER:
+                return Integer.compare((Integer) this.columnValue, (Integer) other.columnValue);
+            case DOUBLE:
+                return Double.compare((Double) this.columnValue, (Double) other.columnValue);
+            case STRING:
+                return ((String) this.columnValue).compareTo((String) other.columnValue);
+            default:
+                throw new IllegalArgumentException("Unsupported data type: " + dataType);
         }
     }
 
-    // Overriding the equals method to ensure equality checks based on just columnValue, is less strict to allow duplicates
+    // Overriding the equals method to ensure equality checks based on just
+    // columnValue, is less strict to allow duplicates
     @Override
     public boolean equals(Object obj) {
         if (this == obj)

@@ -1,8 +1,9 @@
 package edu.smu.smusql;
 
+import edu.smu.smusql.bplustreeA.bplustreeArray.BPlusTreeArrayEngine;
 import java.util.*;
 
-import edu.smu.smusql.bplustreeA.BPlusTreeEngine;
+import edu.smu.smusql.bplustreeA.bplustreeHashmap.BPlusTreeEngine;
 
 // @author ziyuanliu@smu.edu.sg
 
@@ -11,7 +12,7 @@ public class Main {
      *  Main method for accessing the command line interface of the database engine.
      *  MODIFICATION OF THIS FILE IS NOT RECOMMENDED!
      */
-    static BPlusTreeEngine dbEngine = new BPlusTreeEngine(false);
+    static IEngine dbEngine = new BPlusTreeArrayEngine(false);
     public static void main(String[] args) {
 
         Scanner scanner = new Scanner(System.in);

@@ -6,9 +6,9 @@ import java.util.Objects;
 
 class Row implements Comparable<Row> {
     private String id;
-    private Map<String, String> data; // The actual row data mapped by column name (stored as String values)
+    private Map<String, Object> data; // The actual row data mapped by column name (stored as String values)
 
-    public Row(String id, Map<String, String> data) {
+    public Row(String id, Map<String, Object> data) {
         this.id = id;
         this.data = data;
     }
@@ -17,11 +17,11 @@ class Row implements Comparable<Row> {
         return id;
     }
     
-    public Map<String, String> getData() {
+    public Map<String, Object> getData() {
         return data;
     }
 
-    public void setData(Map<String, String> data) {
+    public void setData(Map<String, Object> data) {
         this.data = data;
     }
 

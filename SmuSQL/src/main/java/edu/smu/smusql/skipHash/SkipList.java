@@ -18,7 +18,8 @@ public class SkipList<E extends Comparable<E>> implements Iterable<E> {
     private Node<E> head;
     private int levels;
     private Random random;
-    private static final double PROBABILITY = 0.5;
+    private static final double PROBABILITY = 0.4;
+    private static final int MAX_LEVEL = 17;
 
     public SkipList() {
         head = new Node<>(null, null, null);
@@ -55,7 +56,7 @@ public class SkipList<E extends Comparable<E>> implements Iterable<E> {
 
         // Randomly build higher levels
         int level = 1;
-        while (random.nextDouble() < PROBABILITY) {
+        while (random.nextDouble() < PROBABILITY && level < MAX_LEVEL) {
             if (level >= levels) {
                 addLevel();
                 update.add(head); // Add the new head to the update list
