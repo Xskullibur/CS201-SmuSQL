@@ -1,4 +1,4 @@
-# smuSQL Database System
+# SmuSQL Database System
 
 This repository contains the implementation of the smuSQL database system. Below, you'll find an overview of the supported SQL-like commands, team members, evaluation metrics, and the core logic of our implementation.
 
